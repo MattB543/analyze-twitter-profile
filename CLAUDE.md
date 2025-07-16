@@ -21,9 +21,9 @@ The extension now targets all Twitter/X pages and intercepts GraphQL responses f
 
 ### Python Processor
 - **`twitter-processer.py`** - Main script that processes exported Twitter data
-- Reads `tweets.js`, `like.js` files from Twitter exports
-- Reads `bookmarks_*.jsonl` files from the Firefox extension
+- Reads `tweets_*.jsonl`, `likes_*.jsonl`, and `bookmarks_*.jsonl` files from the Firefox extension
 - Uses Gemini API for image captioning (`GEMINI_API_KEY` required)
+- Uses TwitterAPI.io for parent tweet hydration (`TWITTERAPI_KEY` required)
 - Fetches URL metadata for external links
 - Outputs three text files: `tweets_for_llm.txt`, `likes_for_llm.txt`, `bookmarks_for_llm.txt`
 
@@ -38,15 +38,15 @@ The extension now targets all Twitter/X pages and intercepts GraphQL responses f
 # Run the processor (opens folder picker dialog)
 python twitter-processer/twitter-processer.py
 
-# Hydrate parent tweets (optional, requires twarc2 setup)
-python hydrate_parents.py
+# Hydrate parent tweets (optional, uses TwitterAPI.io)
+python hydrate_parents_api.py
 
-# Required environment variable
+# Required environment variables
 export GEMINI_API_KEY="your-api-key"
+export TWITTERAPI_KEY="pk_live_yourKeyHere"  # Get from https://twitterapi.io/
 
-# For parent tweet hydration
-pip install twarc
-twarc2 configure  # Set up Twitter API v2 credentials
+# TwitterAPI.io provides 100k free credits ≈ 6,600 tweets (15 credits per tweet)
+# Much simpler than official Twitter API - no OAuth, no rate limit issues
 ```
 
 ## Key Data Flow
@@ -54,7 +54,7 @@ twarc2 configure  # Set up Twitter API v2 credentials
 1. Extension intercepts GraphQL responses on Twitter/X pages
 2. `flatten()` function in `background.js:9` converts raw tweet objects to simplified format (now includes `parent_ids`)
 3. Data is downloaded as JSONL files with timestamps: `bookmarks_YYYY-MM-DD-HH-MM-SS.jsonl`
-4. `hydrate_parents.py` extracts missing parent tweet IDs and fetches them via Twitter API v2
+4. `hydrate_parents_api.py` extracts missing parent tweet IDs and fetches them via TwitterAPI.io
 5. Python processor loads all data sources including hydrated parents, generates image captions and URL metadata
 6. Outputs plain text files suitable for LLM consumption
 
@@ -70,7 +70,7 @@ The extension is configured via `manifest.json` to:
 ✅ **Completed enhancements from claude-plan.md + claude-fix.md:**
 1. ✅ Expanded GraphQL interception to capture `UserTweets`, `LikesTimeline`, `TweetDetail`  
 2. ✅ Added `parent_ids` field to track tweet relationships
-3. ✅ Created `hydrate_parents.py` for Twitter API v2 parent tweet hydration via `twarc2`
+3. ✅ Created `hydrate_parents_api.py` for parent tweet hydration via TwitterAPI.io (replaces twarc2)
 4. ✅ Modified processor to merge hydrated parent tweets into the main lookup
 5. ✅ **Fixed critical wiring issues:**
    - Updated message protocol from `BOOKMARK_RESPONSE` to `TIMELINE_RESPONSE`

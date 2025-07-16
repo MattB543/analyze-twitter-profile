@@ -10,16 +10,15 @@ Usage
     python twitter_to_llm.py
 
 The script will open a folder picker dialog. Select the folder containing your
-Twitter export files, and the script will automatically find:
-- tweets.js
-- like.js  
-- bookmarks_*.jsonl (any JSONL file starting with "bookmarks_")
+Twitter data files, and the script will automatically find:
+- tweets_*.jsonl (from Firefox extension or Twitter export)
+- likes_*.jsonl (from Firefox extension or Twitter export)
+- bookmarks_*.jsonl (from Firefox extension or Twitter export)
 
 Output files are written to the same selected folder.
 
 The script:
-* strips the JavaScript assignment wrapper from the `tweets.js` / `like.js`
-  arrays,
+* reads JSONL files exported by the Firefox extension or Twitter export,
 * converts each structure into a minimal, readable text representation,
 * tries to include the parent tweet when you replied / quote‑tweeted, when that
   parent tweet is available in your likes file (handy context for an LLM).
@@ -84,7 +83,7 @@ def _format_date(date_str: str) -> str:
 
 
 def find_files_in_folder(folder: Path) -> tuple[Path | None, Path | None, Path | None, Path | None]:
-    """Find tweets.js, like.js, bookmarks_*.jsonl, and parents.json files in the given folder.
+    """Find tweets_*.jsonl, likes_*.jsonl, bookmarks_*.jsonl, and parents.json files in the given folder.
     
     Returns:
         Tuple of (tweets_file, likes_file, bookmarks_file, parents_file) or None if not found
@@ -94,15 +93,15 @@ def find_files_in_folder(folder: Path) -> tuple[Path | None, Path | None, Path |
     bookmarks_file = None
     parents_file = None
     
-    # Look for tweets.js
-    tweets_path = folder / "tweets.js"
-    if tweets_path.exists():
-        tweets_file = tweets_path
+    # Look for tweets_*.jsonl (from Firefox extension)
+    for file in folder.glob("tweets_*.jsonl"):
+        tweets_file = file
+        break  # Take the first one found
     
-    # Look for like.js
-    likes_path = folder / "like.js"
-    if likes_path.exists():
-        likes_file = likes_path
+    # Look for likes_*.jsonl (from Firefox extension)
+    for file in folder.glob("likes_*.jsonl"):
+        likes_file = file
+        break  # Take the first one found
     
     # Look for bookmarks_*.jsonl
     for file in folder.glob("bookmarks_*.jsonl"):
@@ -121,10 +120,22 @@ def find_files_in_folder(folder: Path) -> tuple[Path | None, Path | None, Path |
 #  Tweets & Likes                                                             #
 # --------------------------------------------------------------------------- #
 
-def parse_likes_js(likes_js: Path) -> Dict[str, str]:
-    data = _load_js_array(likes_js, "window.YTD.like.part0")
-    return {item["like"]["tweetId"]: item["like"].get("fullText", "")
-            for item in data if "like" in item}
+def parse_likes_jsonl(likes_file: Path) -> Dict[str, str]:
+    """Parse likes from JSONL file exported by Firefox extension."""
+    likes_lookup = {}
+    for line_no, line in enumerate(likes_file.read_text(encoding="utf-8").splitlines(), 1):
+        if not line.strip():
+            continue
+        try:
+            obj = json.loads(line)
+            tweet_id = obj.get("tweet_id", "")
+            text = obj.get("text", "")
+            if tweet_id and text:
+                likes_lookup[tweet_id] = text
+        except json.JSONDecodeError:
+            print(f"⚠️  Skipping malformed JSON on line {line_no} in {likes_file.name}", file=sys.stderr)
+            continue
+    return likes_lookup
 
 
 def load_parents_json(parents_file: Path) -> Dict[str, str]:
@@ -149,23 +160,33 @@ def load_parents_json(parents_file: Path) -> Dict[str, str]:
         return {}
 
 
-def parse_tweets_js(tweets_js: Path) -> List[Dict[str, Any]]:
-    data = _load_js_array(tweets_js, "window.YTD.tweets.part0")
+def parse_tweets_jsonl(tweets_file: Path) -> List[Dict[str, Any]]:
+    """Parse tweets from JSONL file exported by Firefox extension."""
     tweets = []
-    for wrapper in data:
-        t = wrapper.get("tweet", {})
-        tweets.append(
-            {
-                "id": t.get("id_str") or t.get("id", ""),
-                "created_at": _format_date(t.get("created_at", "")),
-                "text": t.get("full_text", ""),
-                "is_retweet": t.get("retweeted", False),
-                "is_reply": bool(t.get("in_reply_to_status_id_str")),
-                "quoted_tweet_id": t.get("quoted_status_id_str", ""),
-                "reply_to_tweet_id": t.get("in_reply_to_status_id_str", ""),
-                "reply_to_user": t.get("in_reply_to_screen_name", ""),
-            }
-        )
+    for line_no, line in enumerate(tweets_file.read_text(encoding="utf-8").splitlines(), 1):
+        if not line.strip():
+            continue
+        try:
+            obj = json.loads(line)
+            
+            # Extract parent IDs from the new format
+            parent_ids = obj.get("parent_ids", [])
+            reply_to_tweet_id = parent_ids[0] if parent_ids else ""
+            quoted_tweet_id = parent_ids[1] if len(parent_ids) > 1 else ""
+            
+            tweets.append({
+                "id": obj.get("tweet_id", ""),
+                "created_at": obj.get("created_at", ""),
+                "text": obj.get("text", ""),
+                "is_retweet": obj.get("retweet", 0) > 0,
+                "is_reply": obj.get("reply", 0) > 0,
+                "quoted_tweet_id": quoted_tweet_id,
+                "reply_to_tweet_id": reply_to_tweet_id,
+                "reply_to_user": "",  # Not available in new format
+            })
+        except json.JSONDecodeError:
+            print(f"⚠️  Skipping malformed JSON on line {line_no} in {tweets_file.name}", file=sys.stderr)
+            continue
     return tweets
 
 
@@ -225,6 +246,7 @@ def export_likes_text(tweet_lookup: Dict[str, str], outfile: Path, url_to_captio
 # --------------------------------------------------------------------------- #
 
 def parse_bookmarks_jsonl(bookmarks_file: Path) -> List[Dict[str, Any]]:
+    """Parse bookmarks from JSONL file - handles both old and new formats."""
     tweets = []
     for line_no, line in enumerate(bookmarks_file.read_text(encoding="utf-8").splitlines(), 1):
         if not line.strip():
@@ -235,6 +257,16 @@ def parse_bookmarks_jsonl(bookmarks_file: Path) -> List[Dict[str, Any]]:
             print(f"⚠️  Skipping malformed JSON on line {line_no}", file=sys.stderr)
             continue
         
+        # Check if this is the new simplified format from Firefox extension
+        if "tweet_id" in obj and "text" in obj:
+            # New format - much simpler
+            tweets.append({
+                "screen_name": "",  # Not available in new format
+                "full_text": obj.get("text", ""),
+            })
+            continue
+        
+        # Old format - complex parsing from Twitter export
         # Extract screen name from the nested structure
         screen_name = ""
         raw_data = obj.get("raw", {})
@@ -308,7 +340,7 @@ def parse_bookmarks_jsonl(bookmarks_file: Path) -> List[Dict[str, Any]]:
             full_text = full_text.replace(shortened, expanded)
         
         tweets.append({
-            "screen_name": '@' + screen_name,
+            "screen_name": '@' + screen_name if screen_name else "",
             "full_text": full_text,
         })
     return tweets
@@ -581,19 +613,19 @@ def main() -> None:
     missing_files = []
     
     if tweets_file:
-        found_files.append(f"✅  Found tweets.js: {tweets_file.name}")
+        found_files.append(f"✅  Found tweets file: {tweets_file.name}")
     else:
-        missing_files.append("❌  Missing tweets.js")
+        missing_files.append("⚠️  No tweets_*.jsonl file found")
     
     if likes_file:
-        found_files.append(f"✅  Found like.js: {likes_file.name}")
+        found_files.append(f"✅  Found likes file: {likes_file.name}")
     else:
-        missing_files.append("❌  Missing like.js")
+        missing_files.append("⚠️  No likes_*.jsonl file found")
     
     if bookmarks_file:
         found_files.append(f"✅  Found bookmarks file: {bookmarks_file.name}")
     else:
-        missing_files.append("⚠️  No bookmarks_*.jsonl file found (optional)")
+        missing_files.append("⚠️  No bookmarks_*.jsonl file found")
     
     if parents_file:
         found_files.append(f"✅  Found parents file: {parents_file.name}")
@@ -606,18 +638,25 @@ def main() -> None:
     for msg in missing_files:
         print(msg)
     
-    # Check if we have the minimum required files
-    if not tweets_file or not likes_file:
-        error_msg = "Cannot proceed without both tweets.js and like.js files."
+    # Check if we have at least one data file
+    if not tweets_file and not likes_file and not bookmarks_file:
+        error_msg = "Cannot proceed without at least one of: tweets_*.jsonl, likes_*.jsonl, or bookmarks_*.jsonl files."
         print(f"❌  {error_msg}")
         messagebox.showerror("Missing Files", error_msg)
         return
     
     # Process data and collect all texts for image analysis
     try:
-        print("\n🔄  Processing tweets and likes...")
-        like_lookup = parse_likes_js(likes_file)
-        tweets = parse_tweets_js(tweets_file)
+        like_lookup = {}
+        tweets = []
+        
+        if likes_file:
+            print("\n🔄  Processing likes...")
+            like_lookup = parse_likes_jsonl(likes_file)
+        
+        if tweets_file:
+            print("🔄  Processing tweets...")
+            tweets = parse_tweets_jsonl(tweets_file)
         
         # Load and merge parent tweets if available
         if parents_file:
@@ -679,9 +718,13 @@ def main() -> None:
             print(f"⚠️  Failed generating URL metadata: {e}")
         
         # Export text files with image captions and URL metadata replaced
-        export_tweets_text(tweets, like_lookup, folder / "tweets_for_llm.txt", url_to_caption, url_to_meta)
-        export_likes_text(like_lookup, folder / "likes_for_llm.txt", url_to_caption, url_to_meta)
-        print("✅  Exported tweets_for_llm.txt and likes_for_llm.txt")
+        if tweets:
+            export_tweets_text(tweets, like_lookup, folder / "tweets_for_llm.txt", url_to_caption, url_to_meta)
+            print("✅  Exported tweets_for_llm.txt")
+        
+        if like_lookup:
+            export_likes_text(like_lookup, folder / "likes_for_llm.txt", url_to_caption, url_to_meta)
+            print("✅  Exported likes_for_llm.txt")
         
         if bookmarks:
             export_bookmarks_text(bookmarks, folder / "bookmarks_for_llm.txt", url_to_caption, url_to_meta)
