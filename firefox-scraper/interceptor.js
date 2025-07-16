@@ -6,13 +6,17 @@ if (typeof browser === "undefined") {
   var browser = chrome;
 }
 
-// 1️⃣ Inject the main-world patch **as an external script**, bypassing CSP
+// 1️⃣ Inject the main-world patch **inline**, bypassing CSP
 (function injectPatch() {
-  const src = browser.runtime.getURL("page_patch.js");
-  const s = document.createElement("script");
-  s.src = src;
-  s.onload = () => s.remove(); // tidy up <script> tag
-  (document.documentElement || document.head).appendChild(s);
+  fetch(browser.runtime.getURL("page_patch.js"))
+    .then(r => r.text())
+    .then(code => {
+      const s = document.createElement("script");
+      s.textContent = code + '\n//# sourceURL=twitter-exporter/page_patch.js';
+      (document.documentElement || document.head).appendChild(s);
+      s.remove();
+    })
+    .catch(console.error);
 })();
 
 // 2️⃣ Forward TIMELINE_RESPONSE messages to the background worker

@@ -9,6 +9,8 @@ if (typeof browser === "undefined") {
 function flatten(tweet) {
   const l = tweet.legacy ?? {};
   const u = tweet?.core?.user_results?.result?.legacy ?? {};
+  const quoted = tweet?.quoted_status_result?.result;
+  const retweeted = tweet?.retweeted_status_result?.result;
   return {
     tweet_id: tweet.rest_id,
     created_at: l.created_at,
@@ -16,11 +18,20 @@ function flatten(tweet) {
     lang: l.lang,
     favorite: l.favorite_count,
     retweet: l.retweet_count,
+    reply: l.reply_count,
+    quote: l.quote_count,
+    // Consistent aliases for analytics
+    favorite_count: l.favorite_count,
+    retweet_count: l.retweet_count,
+    reply_count: l.reply_count,
+    quote_count: l.quote_count,
     user_handle: u.screen_name,
     parent_ids: [
       ...(l.referenced_tweets ?? []).map(r => r.id_str),
       l.in_reply_to_status_id_str,
       l.quoted_status_id_str,
+      quoted?.rest_id,        // nested quote
+      ...(retweeted?.rest_id ? [retweeted.rest_id] : [])  // retweeted original
     ].filter(Boolean),
     raw: tweet,
   };
@@ -218,12 +229,8 @@ browser.runtime.onMessage.addListener(async (msg, sender, sendResponse) => {
   try {
     switch (msg.cmd) {
       case "START": {
-        // Get current active tab (don't force navigation - let user be on any timeline)
-        const [tab] = await browser.tabs.query({
-          active: true,
-          currentWindow: true,
-        });
-
+        tweets.clear();           // safety: flush any old run
+        
         // scroller.js is auto-injected via manifest; just kick it off
         browser.tabs.sendMessage(tabId, {
           cmd: "SCROLL_START",
@@ -250,10 +257,16 @@ browser.runtime.onMessage.addListener(async (msg, sender, sendResponse) => {
           let added = 0;
           for (const instr of tl.instructions ?? []) {
             console.log(`🔍 Processing instruction type: ${instr.type}`);
-            if (instr.type !== "TimelineAddEntries") continue;
+            if (!['TimelineAddEntries','TimelineReplaceEntry','TimelineAddToModule']
+                  .includes(instr.type)) continue;
             
-            for (const ent of instr.entries ?? []) {
-              const tw = ent.content?.itemContent?.tweet_results?.result;
+            const entries =                     // normal → replace → module
+              instr.entries ??
+              (instr.entry ? [instr.entry] : (instr.module?.items ?? []));
+            for (const ent of entries) {
+              const item = ent.content?.itemContent               // normal
+                       ?? ent.content?.item?.itemContent;         // inside module
+              const tw = item?.tweet_results?.result;
               if (tw?.__typename === "Tweet") {
                 if (!tweets.has(tw.rest_id)) {
                   tweets.set(tw.rest_id, flatten(tw));
@@ -263,7 +276,10 @@ browser.runtime.onMessage.addListener(async (msg, sender, sendResponse) => {
                   console.log(`⚠️ Tweet already exists: ${tw.rest_id}`);
                 }
               } else {
-                console.log("❌ No tweet found in entry:", ent.content?.itemContent);
+                console.log("❌ No tweet found in entry:", {
+                  itemContent: ent.content?.itemContent,
+                  moduleItemContent: ent.content?.item?.itemContent
+                });
               }
             }
           }
