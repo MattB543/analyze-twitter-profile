@@ -1,0 +1,47 @@
+{
+  "manifest_version": 2,
+  "name": "Twitter Exporter",
+  "version": "0.3.0",
+  "description": "Auto-scroll timelines, capture tweets/likes/bookmarks via GraphQL, export JSONL.",
+  "permissions": [
+    "downloads",
+    "activeTab",
+    "storage",
+    "https://twitter.com/*",
+    "https://x.com/*"
+  ],
+  "background": {
+    "scripts": ["background.js"],
+    "persistent": false
+  },
+  "browser_action": { "default_popup": "popup.html" },
+  "web_accessible_resources": ["page_patch.js"],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://twitter.com/i/bookmarks*",
+        "https://x.com/i/bookmarks*",
+        "https://twitter.com/*",
+        "https://x.com/*"
+      ],
+      "js": ["interceptor.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://twitter.com/i/bookmarks*",
+        "https://x.com/i/bookmarks*",
+        "https://twitter.com/*",
+        "https://x.com/*"
+      ],
+      "js": ["scroller.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "tweet-bookmarks@example.com",
+      "strict_min_version": "128.0"
+    }
+  }
+}

@@ -1,0 +1,36 @@
+# Claude planning and documentation files
+claude-plan.md
+claude-fix.md
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Output files
+*.jsonl
+*.csv
+*.txt
+parents.json
+image_captions.csv
+url_metadata.csv
+
+# Logs
+*.log
