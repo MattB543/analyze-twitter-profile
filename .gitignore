@@ -1,6 +1,5 @@
-# Claude planning and documentation files
-claude-plan.md
-claude-fix.md
+# Ignore all Markdown files
+*.md
 
 # Python cache
 __pycache__/

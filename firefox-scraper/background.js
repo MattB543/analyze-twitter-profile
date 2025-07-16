@@ -233,19 +233,24 @@ browser.runtime.onMessage.addListener(async (msg, sender, sendResponse) => {
         console.log(`🧹 Clearing ${tweets.size} existing tweets before starting`);
         tweets.clear();           // safety: flush any old run
         
-        // Auto-reload to capture first batch and ensure fresh state
-        console.log("🔄 Reloading tab to capture initial tweets...");
-        await browser.tabs.reload(tabId, { bypassCache: true });
-        
-        // Wait for reload to complete before starting scroller
-        setTimeout(() => {
-          // scroller.js is auto-injected via manifest; just kick it off
-          browser.tabs.sendMessage(tabId, {
-            cmd: "SCROLL_START",
-            maxScrolls: msg.maxScrolls,
-          });
-        }, 2000); // 2 second delay to ensure page loads and interceptor installs
+        // 🔄 1) Hard‑reload (returns immediately)
+        console.log("🔄 Reloading tab to capture initial tweets…");
+        browser.tabs.reload(tabId, { bypassCache: true });
 
+        // 2) One‑shot listener – fires when the *same* tab finishes loading
+        const onUpdated = (updatedId, info) => {
+          if (updatedId === tabId && info.status === "complete") {
+            browser.tabs.onUpdated.removeListener(onUpdated);
+            console.log("✅ Tab reloaded – starting scroller");
+            browser.tabs.sendMessage(tabId, {
+              cmd: "SCROLL_START",
+              maxScrolls: msg.maxScrolls,
+            }).catch(err => console.error("❌ Could not start scroller:", err));
+          }
+        };
+        browser.tabs.onUpdated.addListener(onUpdated);
+
+        // reply to popup right away so it can close
         sendResponse({ success: true });
         break;
       }
