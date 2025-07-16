@@ -92,7 +92,10 @@ function startScrolling(userMaxScrolls = null) {
   const limitMessage = maxScrolls
     ? ` (max ${maxScrolls} scrolls)`
     : " (unlimited)";
-  console.log(`🚀 Scrolling started${limitMessage}`);
+  console.log(`🚀 SCROLLER: Scrolling started${limitMessage}`);
+  console.log(`🔍 SCROLLER: Current URL:`, window.location.href);
+  console.log(`🔍 SCROLLER: Page height:`, document.documentElement.scrollHeight);
+  
   scrolling = true;
   idleCycles = 0;
   lastHeight = 0;
@@ -100,7 +103,7 @@ function startScrolling(userMaxScrolls = null) {
   
   // Random initial delay (1-3 seconds) to mimic user behavior
   const initialDelay = 1000 + Math.random() * 2000;
-  console.log(`⏳ Starting in ${Math.round(initialDelay/1000)}s...`);
+  console.log(`⏳ SCROLLER: Starting in ${Math.round(initialDelay/1000)}s...`);
   setTimeout(performScroll, initialDelay);
 }
 
