@@ -3,7 +3,7 @@
   if (window.__timelineInterceptorInstalled) return;
   window.__timelineInterceptorInstalled = true;
 
-  const DEBUG = false; // Set to true for development logging
+  const DEBUG = true; // Set to true for development logging
   
   const relay = (data, url, method) => {
     if (DEBUG) console.log(`📡 Relaying ${method} data from:`, url);
@@ -21,7 +21,9 @@
     ) {
       // Debug: log all GraphQL requests to see what we're missing
       if (DEBUG) console.log("🔍 GraphQL request:", url);
-      if (/UserTweets|UserTweetsAndReplies|UserMedia|Likes(?:Timeline)?|BookmarkedTweetsTimeline|Bookmarks(?:Timeline)?|Home(?:Latest)?Timeline|TweetDetail/i.test(url)) {
+      const isTargetEndpoint = /UserTweets|UserTweetsAndReplies|UserMedia|Likes(?:Timeline)?|BookmarkedTweetsTimeline|Bookmarks(?:Timeline)?|Home(?:Latest)?Timeline|TweetDetail/i.test(url);
+      if (DEBUG) console.log(`📋 Target endpoint match: ${isTargetEndpoint}`);
+      if (isTargetEndpoint) {
       res
         .clone()
         .text()
@@ -49,7 +51,9 @@
   XMLHttpRequest.prototype.send = function (...body) {
     if (this._url?.includes("/api/graphql/")) {
       if (DEBUG) console.log("🔍 GraphQL XHR request:", this._url);
-      if (/UserTweets|UserTweetsAndReplies|UserMedia|Likes(?:Timeline)?|BookmarkedTweetsTimeline|Bookmarks(?:Timeline)?|Home(?:Latest)?Timeline|TweetDetail/i.test(this._url)) {
+      const isTargetEndpoint = /UserTweets|UserTweetsAndReplies|UserMedia|Likes(?:Timeline)?|BookmarkedTweetsTimeline|Bookmarks(?:Timeline)?|Home(?:Latest)?Timeline|TweetDetail/i.test(this._url);
+      if (DEBUG) console.log(`📋 XHR Target endpoint match: ${isTargetEndpoint}`);
+      if (isTargetEndpoint) {
         if (DEBUG) console.log("✅ Setting up XHR interception for:", this._url);
         const _onreadystatechange = this.onreadystatechange;
         this.onreadystatechange = function () {

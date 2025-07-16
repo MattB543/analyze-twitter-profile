@@ -80,6 +80,7 @@ async function blobToDataURL(blob) {
 
 async function download() {
   console.log(`💾 Downloading ${tweets.size} tweets…`);
+  console.log(`📊 Current tweets in memory:`, [...tweets.keys()].slice(0, 5)); // Show first 5 IDs
   if (tweets.size === 0) {
     console.warn("⚠️  No tweets captured!");
     return;
@@ -229,6 +230,7 @@ browser.runtime.onMessage.addListener(async (msg, sender, sendResponse) => {
   try {
     switch (msg.cmd) {
       case "START": {
+        console.log(`🧹 Clearing ${tweets.size} existing tweets before starting`);
         tweets.clear();           // safety: flush any old run
         
         // scroller.js is auto-injected via manifest; just kick it off
@@ -277,8 +279,11 @@ browser.runtime.onMessage.addListener(async (msg, sender, sendResponse) => {
                 }
               } else {
                 console.log("❌ No tweet found in entry:", {
+                  entryType: ent.entryId || ent.content?.entryType || "unknown",
+                  contentKeys: Object.keys(ent.content || {}),
                   itemContent: ent.content?.itemContent,
-                  moduleItemContent: ent.content?.item?.itemContent
+                  moduleItemContent: ent.content?.item?.itemContent,
+                  fullEntry: ent
                 });
               }
             }
