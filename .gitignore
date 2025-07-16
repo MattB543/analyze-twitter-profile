@@ -33,3 +33,7 @@ url_metadata.csv
 
 # Logs
 *.log
+
+# EXCEPTION: include the example_tweets folder and its files
+!example_tweets/
+!example_tweets/**
