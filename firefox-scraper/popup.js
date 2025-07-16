@@ -22,6 +22,10 @@ async function send(cmd, data = {}) {
 }
 
 start.onclick = () => {
+  // Prevent double-click issues
+  start.disabled = true;
+  start.textContent = "⏳ Starting...";
+  
   const scrollCountInput = document.getElementById("scrollCount");
   const scrollCount = scrollCountInput.value.trim();
   // Convert to number if provided, otherwise null for unlimited

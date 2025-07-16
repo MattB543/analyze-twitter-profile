@@ -1,9 +1,13 @@
 // page_patch.js — runs in the page's main world
 (() => {
-  if (window.__timelineInterceptorInstalled) return;
+  if (window.__timelineInterceptorInstalled) {
+    console.log("⚠️ Timeline interceptor already installed, skipping");
+    return;
+  }
+  console.log("🚀 Timeline interceptor starting installation...");
   window.__timelineInterceptorInstalled = true;
 
-  const DEBUG = true; // Set to true for development logging
+  const DEBUG = false; // Set to true for development logging
   
   const relay = (data, url, method) => {
     if (DEBUG) console.log(`📡 Relaying ${method} data from:`, url);
@@ -72,5 +76,12 @@
     return origSend.apply(this, body);
   };
 
-  if (DEBUG) console.log("✅ Timeline interceptor installed (main world)");
+  console.log("✅ Timeline interceptor installed (main world)");
+  console.log("🔍 Testing fetch interception...");
+  
+  // Test if our interception is working
+  setTimeout(() => {
+    console.log("🧪 Original fetch function:", typeof window.fetch);
+    console.log("🧪 Original XHR function:", typeof window.XMLHttpRequest);
+  }, 1000);
 })();

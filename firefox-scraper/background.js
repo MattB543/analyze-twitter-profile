@@ -259,6 +259,14 @@ browser.runtime.onMessage.addListener(async (msg, sender, sendResponse) => {
           let added = 0;
           for (const instr of tl.instructions ?? []) {
             console.log(`🔍 Processing instruction type: ${instr.type}`);
+            
+            // Handle cache clearing instruction
+            if (instr.type === 'TimelineClearCache') {
+              console.log("🧹 TimelineClearCache instruction - clearing tweet cache");
+              tweets.clear();
+              continue;
+            }
+            
             if (!['TimelineAddEntries','TimelineReplaceEntry','TimelineAddToModule']
                   .includes(instr.type)) continue;
             
