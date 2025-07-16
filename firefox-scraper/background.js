@@ -233,11 +233,18 @@ browser.runtime.onMessage.addListener(async (msg, sender, sendResponse) => {
         console.log(`🧹 Clearing ${tweets.size} existing tweets before starting`);
         tweets.clear();           // safety: flush any old run
         
-        // scroller.js is auto-injected via manifest; just kick it off
-        browser.tabs.sendMessage(tabId, {
-          cmd: "SCROLL_START",
-          maxScrolls: msg.maxScrolls,
-        });
+        // Auto-reload to capture first batch and ensure fresh state
+        console.log("🔄 Reloading tab to capture initial tweets...");
+        await browser.tabs.reload(tabId, { bypassCache: true });
+        
+        // Wait for reload to complete before starting scroller
+        setTimeout(() => {
+          // scroller.js is auto-injected via manifest; just kick it off
+          browser.tabs.sendMessage(tabId, {
+            cmd: "SCROLL_START",
+            maxScrolls: msg.maxScrolls,
+          });
+        }, 2000); // 2 second delay to ensure page loads and interceptor installs
 
         sendResponse({ success: true });
         break;
