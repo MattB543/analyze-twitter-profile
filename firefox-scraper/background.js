@@ -279,7 +279,7 @@ browser.runtime.onMessage.addListener(async (msg, sender, sendResponse) => {
               continue;
             }
             
-            if (!['TimelineAddEntries','TimelineReplaceEntry','TimelineAddToModule']
+            if (!['TimelineAddEntries','TimelineReplaceEntry','TimelineAddToModule','TimelineTerminateTimeline','TimelinePinEntry']
                   .includes(instr.type)) continue;
             
             const entries =                     // normal → replace → module

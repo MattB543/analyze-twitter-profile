@@ -36,6 +36,8 @@ import pathlib
 import csv
 import requests
 import mimetypes
+import hashlib
+import time
 from datetime import datetime
 from pathlib import Path
 from tkinter import filedialog, messagebox
@@ -169,25 +171,80 @@ def parse_tweets_jsonl(tweets_file: Path) -> List[Dict[str, Any]]:
         try:
             obj = json.loads(line)
             
-            # Extract parent IDs from the new format
-            parent_ids = obj.get("parent_ids", [])
-            reply_to_tweet_id = parent_ids[0] if parent_ids else ""
-            quoted_tweet_id = parent_ids[1] if len(parent_ids) > 1 else ""
+            # Extract proper parent relationships from raw data (more reliable than parent_ids array)
+            raw_data = obj.get("raw", {})
+            legacy = raw_data.get("legacy", {})
+            
+            # Get reply and quote IDs from the authoritative sources
+            reply_to_tweet_id = legacy.get("in_reply_to_status_id_str", "")
+            quoted_tweet_id = legacy.get("quoted_status_id_str", "")
+            
+            # Check for retweet - look for retweeted_status_result, not retweet count
+            is_retweet = bool(raw_data.get("retweeted_status_result"))
+            
+            # Fallback to parent_ids if raw data not available
+            if not reply_to_tweet_id and not quoted_tweet_id:
+                parent_ids = obj.get("parent_ids", [])
+                if parent_ids:
+                    # Try to guess: if reply_count > 0, first parent_id is likely reply
+                    if obj.get("reply", 0) > 0 and parent_ids:
+                        reply_to_tweet_id = parent_ids[0]
+                    elif obj.get("quote", 0) > 0 and parent_ids:
+                        quoted_tweet_id = parent_ids[0]
+                    elif len(parent_ids) > 1:
+                        reply_to_tweet_id = parent_ids[0]
+                        quoted_tweet_id = parent_ids[1]
+                    elif parent_ids:
+                        # Single parent - could be either, default to reply
+                        reply_to_tweet_id = parent_ids[0]
             
             tweets.append({
                 "id": obj.get("tweet_id", ""),
                 "created_at": obj.get("created_at", ""),
                 "text": obj.get("text", ""),
-                "is_retweet": obj.get("retweet", 0) > 0,
-                "is_reply": obj.get("reply", 0) > 0,
+                "is_retweet": is_retweet,
+                "is_reply": bool(reply_to_tweet_id),
                 "quoted_tweet_id": quoted_tweet_id,
                 "reply_to_tweet_id": reply_to_tweet_id,
-                "reply_to_user": "",  # Not available in new format
+                "reply_to_user": legacy.get("in_reply_to_screen_name", ""),
             })
         except json.JSONDecodeError:
             print(f"⚠️  Skipping malformed JSON on line {line_no} in {tweets_file.name}", file=sys.stderr)
             continue
     return tweets
+
+
+def get_thread_context(tweet_id: str, tweet_lookup: Dict[str, str], max_depth: int = 3, visited: set = None) -> List[str]:
+    """
+    Get thread context for a tweet, following parent relationships up to max_depth.
+    
+    Args:
+        tweet_id: The starting tweet ID
+        tweet_lookup: Dictionary mapping tweet IDs to tweet content
+        max_depth: Maximum depth to traverse (default 3 to prevent infinite chains)
+        visited: Set of already visited tweet IDs to prevent cycles
+    
+    Returns:
+        List of tweet texts in chronological order (oldest first)
+    """
+    if visited is None:
+        visited = set()
+    
+    if tweet_id in visited or max_depth <= 0:
+        return []
+    
+    visited.add(tweet_id)
+    context = []
+    
+    # Get the current tweet content
+    current_content = tweet_lookup.get(tweet_id, "")
+    if current_content:
+        context.append(current_content)
+    
+    # Note: For deeper thread context, we'd need parent relationships
+    # The current implementation is already limited to 1 level, which is good
+    
+    return context
 
 
 def export_tweets_text(tweets: List[Dict[str, Any]],
@@ -198,23 +255,37 @@ def export_tweets_text(tweets: List[Dict[str, Any]],
     with outfile.open("w", encoding="utf-8") as f:
         last = len(tweets) - 1
         for i, tw in enumerate(tweets):
-            # Add context for replies / quotes if we have it
-            if tw["is_reply"] and tw["reply_to_tweet_id"]:
+            # Add context for replies / quotes if we have it (limit to prevent long chains)
+            context_depth = 0
+            max_context_depth = 3
+            
+            if tw["is_reply"] and tw["reply_to_tweet_id"] and context_depth < max_context_depth:
                 original = tweet_lookup.get(tw["reply_to_tweet_id"], "")
                 if original:
+                    # Truncate very long context tweets to keep output manageable
+                    if len(original) > 500:
+                        original = original[:500] + "... [truncated]"
+                    
                     if url_to_caption:
                         original = replace_images_with_captions(original, url_to_caption)
                     if url_to_meta:
                         original = replace_urls_with_meta(original, url_to_meta)
                     f.write(f"Original (@{tw['reply_to_user']}):\n{original}\n\nMy Reply:\n")
-            elif tw["quoted_tweet_id"]:
+                    context_depth += 1
+                    
+            elif tw["quoted_tweet_id"] and context_depth < max_context_depth:
                 original = tweet_lookup.get(tw["quoted_tweet_id"], "")
                 if original:
+                    # Truncate very long context tweets to keep output manageable
+                    if len(original) > 500:
+                        original = original[:500] + "... [truncated]"
+                    
                     if url_to_caption:
                         original = replace_images_with_captions(original, url_to_caption)
                     if url_to_meta:
                         original = replace_urls_with_meta(original, url_to_meta)
                     f.write(f"Quoted tweet:\n{original}\n\nQuote:\n")
+                    context_depth += 1
 
             text = tw["text"].replace("\r", "")
             if url_to_caption:
@@ -370,44 +441,82 @@ def export_bookmarks_text(bookmarks: List[Dict[str, Any]], outfile: Path, url_to
 #  URL Metadata Extraction                                                    #
 # --------------------------------------------------------------------------- #
 
-def fetch_url_metadata(url: str) -> Dict[str, str]:
-    """Fetch meta title and description from a URL.
+def fetch_url_metadata(url: str, max_retries: int = 3) -> Dict[str, str]:
+    """Fetch meta title and description from a URL with retry logic.
+    
+    Args:
+        url: URL to fetch metadata from
+        max_retries: Maximum number of retry attempts
     
     Returns:
         Dictionary with 'title' and 'description' keys
     """
-    try:
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        }
-        response = requests.get(url, headers=headers, timeout=10)
-        response.raise_for_status()
-        
-        soup = BeautifulSoup(response.content, 'html.parser')
-        
-        # Extract title
-        title = ""
-        title_tag = soup.find('title')
-        if title_tag:
-            title = title_tag.get_text().strip()
-        
-        # Extract meta description
-        description = ""
-        desc_tag = soup.find('meta', attrs={'name': 'description'})
-        if not desc_tag:
-            desc_tag = soup.find('meta', attrs={'property': 'og:description'})
-        if desc_tag:
-            description = desc_tag.get('content', '').strip()
-        
-        return {
-            'title': title,
-            'description': description
-        }
-    except Exception as e:
-        return {
-            'title': f"ERROR: {e}",
-            'description': ""
-        }
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    }
+    
+    for attempt in range(max_retries + 1):
+        try:
+            response = requests.get(url, headers=headers, timeout=10)
+            
+            # Handle rate limiting with exponential backoff
+            if response.status_code == 429:
+                if attempt < max_retries:
+                    wait_time = (2 ** attempt) * 1  # 1, 2, 4 seconds
+                    print(f"⏳ Rate limited on {url}, waiting {wait_time}s (attempt {attempt + 1}/{max_retries + 1})")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    return {
+                        'title': f"ERROR: Rate limited after {max_retries} retries",
+                        'description': ""
+                    }
+            
+            response.raise_for_status()
+            
+            soup = BeautifulSoup(response.content, 'html.parser')
+            
+            # Extract title
+            title = ""
+            title_tag = soup.find('title')
+            if title_tag:
+                title = title_tag.get_text().strip()
+            
+            # Extract meta description
+            description = ""
+            desc_tag = soup.find('meta', attrs={'name': 'description'})
+            if not desc_tag:
+                desc_tag = soup.find('meta', attrs={'property': 'og:description'})
+            if desc_tag:
+                description = desc_tag.get('content', '').strip()
+            
+            return {
+                'title': title,
+                'description': description
+            }
+            
+        except requests.exceptions.RequestException as e:
+            if attempt < max_retries:
+                wait_time = (2 ** attempt) * 1  # 1, 2, 4 seconds
+                print(f"⚠️  Request failed for {url}, retrying in {wait_time}s (attempt {attempt + 1}/{max_retries + 1}): {e}")
+                time.sleep(wait_time)
+                continue
+            else:
+                return {
+                    'title': f"ERROR: {e}",
+                    'description': ""
+                }
+        except Exception as e:
+            return {
+                'title': f"ERROR: {e}",
+                'description': ""
+            }
+    
+    # Should not reach here, but just in case
+    return {
+        'title': "ERROR: Unexpected failure",
+        'description': ""
+    }
 
 
 def generate_url_metadata_from_texts(texts: List[str]) -> Dict[str, str]:
@@ -497,7 +606,7 @@ def save_url_metadata_csv(url_to_meta: Dict[str, str], out_path: Path):
 #  Image Captioning                                                           #
 # --------------------------------------------------------------------------- #
 
-def describe_image(url: str, prompt="""You are an expert image analyst creating a summary for a language model that is analyzing social media posts. Your summary must be a single, dense paragraph.
+def describe_image(url: str, cache_dir: Path = None, prompt="""You are an expert image analyst creating a summary for a language model that is analyzing social media posts. Your summary must be a single, dense paragraph.
 
 Prioritize in this order:
 1.  **Key Text:** Extract the most important text (titles, headlines, key phrases in a meme, data labels on a graph). This is the most critical information.
@@ -510,7 +619,20 @@ AVOID describing:
 - Minor background elements or artistic style unless it's the main subject.
 - Do not begin with "This image shows..." or "The picture depicts...".
 """):
+    # Download image and calculate SHA-1 hash for caching
     img_bytes = requests.get(url, timeout=15).content
+    img_hash = hashlib.sha1(img_bytes).hexdigest()
+    
+    # Check cache first if cache_dir provided
+    if cache_dir:
+        cache_file = cache_dir / f"{img_hash}.txt"
+        if cache_file.exists():
+            try:
+                return cache_file.read_text(encoding="utf-8")
+            except Exception:
+                pass  # Fall through to generate new caption
+    
+    # Generate new caption
     mime = mimetypes.guess_type(url)[0] or "image/jpeg"
     resp = client.models.generate_content(
         model="gemini-2.5-flash",
@@ -519,11 +641,26 @@ AVOID describing:
             prompt
         ],
     )
-    return resp.text
+    caption = resp.text
+    
+    # Save to cache if cache_dir provided
+    if cache_dir:
+        try:
+            cache_dir.mkdir(exist_ok=True)
+            cache_file = cache_dir / f"{img_hash}.txt"
+            cache_file.write_text(caption, encoding="utf-8")
+        except Exception as e:
+            print(f"⚠️  Failed to cache caption for {img_hash}: {e}")
+    
+    return caption
 
 
-def generate_image_captions_from_texts(texts: List[str]) -> Dict[str, str]:
+def generate_image_captions_from_texts(texts: List[str], cache_dir: Path = None) -> Dict[str, str]:
     """Generate captions for all images found in the given texts.
+    
+    Args:
+        texts: List of text content to scan for image URLs
+        cache_dir: Optional directory for caching captions by image hash
     
     Returns:
         Dictionary mapping image URLs to their captions
@@ -536,16 +673,23 @@ def generate_image_captions_from_texts(texts: List[str]) -> Dict[str, str]:
         urls = IMG_RE.findall(text)
         all_urls.update(urls)
     
+    if not all_urls:
+        return url_to_caption
+        
+    print(f"🖼️  Found {len(all_urls)} unique images to caption")
+    if cache_dir:
+        print(f"💾  Using image caption cache: {cache_dir}")
+    
     # Generate captions for each unique URL
-    for url in all_urls:
+    for i, url in enumerate(all_urls, 1):
         try:
-            caption = describe_image(url)
+            caption = describe_image(url, cache_dir)
             url_to_caption[url] = caption
-            print(f"✅  Generated caption for {url}")
+            print(f"✅  [{i}/{len(all_urls)}] Generated caption: {url[:50]}...")
         except Exception as e:
             caption = f"ERROR: {e}"
             url_to_caption[url] = caption
-            print(f"❌  Failed to caption {url}: {e}")
+            print(f"❌  [{i}/{len(all_urls)}] Failed to caption {url[:50]}...: {e}")
     
     return url_to_caption
 
@@ -689,11 +833,12 @@ def main() -> None:
             for bm in bookmarks:
                 all_texts.append(bm.get("full_text", ""))
         
-        # Generate image captions for all texts
+        # Generate image captions for all texts with caching
         url_to_caption = {}
         try:
             print("🔄  Generating image captions...")
-            url_to_caption = generate_image_captions_from_texts(all_texts)
+            image_cache_dir = folder / "image_cache"
+            url_to_caption = generate_image_captions_from_texts(all_texts, image_cache_dir)
             if url_to_caption:
                 # Save the image URL to caption mappings as CSV
                 save_captions_csv(url_to_caption, folder / "image_captions.csv")

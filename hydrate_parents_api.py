@@ -64,6 +64,7 @@ def hydrate_tweets(tweet_ids: List[str]) -> Iterator[Dict[str, Any]]:
     
     total_batches = (len(tweet_ids) + BATCH_SIZE - 1) // BATCH_SIZE
     processed_batches = 0
+    failed_ids = []
     
     for batch in chunks(tweet_ids, BATCH_SIZE):
         processed_batches += 1
@@ -89,21 +90,39 @@ def hydrate_tweets(tweet_ids: List[str]) -> Iterator[Dict[str, Any]]:
             found_count = len(tweets)
             estimated_credits = max(found_count * CREDITS_PER_TWEET, 15)  # Minimum 15 credits per request
             
+            # Track failed IDs (requested but not returned)
+            found_ids = {tweet.get("id") or tweet.get("id_str") for tweet in tweets if tweet.get("id") or tweet.get("id_str")}
+            batch_failed = [tid for tid in batch if tid not in found_ids]
+            failed_ids.extend(batch_failed)
+            
             print(f"✅ Found {found_count}/{batch_size} tweets (≈{estimated_credits} credits)")
+            if batch_failed:
+                print(f"⚠️  {len(batch_failed)} tweets not found in this batch")
             
             for tweet in tweets:
                 yield tweet
                 
         except requests.exceptions.RequestException as e:
             print(f"❌ API request failed for batch {processed_batches}: {e}")
+            failed_ids.extend(batch)  # Mark entire batch as failed
             continue
         except json.JSONDecodeError as e:
             print(f"❌ Failed to parse JSON response for batch {processed_batches}: {e}")
+            failed_ids.extend(batch)  # Mark entire batch as failed
             continue
         
         # Rate limiting
         if processed_batches < total_batches:
             time.sleep(RATE_LIMIT_DELAY)
+    
+    # Save failed IDs to file for audit
+    if failed_ids:
+        try:
+            failed_path = pathlib.Path("failed_hydration_ids.txt")
+            failed_path.write_text("\n".join(failed_ids), encoding="utf-8")
+            print(f"📝 Saved {len(failed_ids)} failed tweet IDs to {failed_path}")
+        except Exception as e:
+            print(f"⚠️  Failed to save failed IDs: {e}")
 
 def extract_parent_ids_from_jsonl_files() -> Set[str]:
     """
