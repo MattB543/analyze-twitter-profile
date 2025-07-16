@@ -235,23 +235,44 @@ browser.runtime.onMessage.addListener(async (msg, sender, sendResponse) => {
       }
 
       case "PROCESS_TIMELINE_DATA": {
-        const page = JSON.parse(msg.data);
-        const tl = extractTimeline(page);
-        if (!tl) return sendResponse({ success: false });
+        console.log("🔄 Processing timeline data from:", msg.url);
+        try {
+          const page = JSON.parse(msg.data);
+          console.log("✅ JSON parsed successfully");
+          
+          const tl = extractTimeline(page);
+          if (!tl) {
+            console.log("❌ No timeline found in response");
+            return sendResponse({ success: false, error: "No timeline found" });
+          }
+          console.log("✅ Timeline extracted, instructions:", tl.instructions?.length || 0);
 
-        let added = 0;
-        for (const instr of tl.instructions ?? []) {
-          if (instr.type !== "TimelineAddEntries") continue;
-          for (const ent of instr.entries ?? []) {
-            const tw = ent.content?.itemContent?.tweet_results?.result;
-            if (tw?.__typename === "Tweet" && !tweets.has(tw.rest_id)) {
-              tweets.set(tw.rest_id, flatten(tw));
-              added++;
+          let added = 0;
+          for (const instr of tl.instructions ?? []) {
+            console.log(`🔍 Processing instruction type: ${instr.type}`);
+            if (instr.type !== "TimelineAddEntries") continue;
+            
+            for (const ent of instr.entries ?? []) {
+              const tw = ent.content?.itemContent?.tweet_results?.result;
+              if (tw?.__typename === "Tweet") {
+                if (!tweets.has(tw.rest_id)) {
+                  tweets.set(tw.rest_id, flatten(tw));
+                  added++;
+                  console.log(`✅ Added tweet: ${tw.rest_id}`);
+                } else {
+                  console.log(`⚠️ Tweet already exists: ${tw.rest_id}`);
+                }
+              } else {
+                console.log("❌ No tweet found in entry:", ent.content?.itemContent);
+              }
             }
           }
+          console.log(`📝 +${added} tweets (total ${tweets.size})`);
+          sendResponse({ success: true, added, total: tweets.size });
+        } catch (e) {
+          console.error("❌ Error processing timeline data:", e);
+          sendResponse({ success: false, error: e.message });
         }
-        console.log(`📝 +${added} tweets (total ${tweets.size})`);
-        sendResponse({ success: true, added, total: tweets.size });
         break;
       }
 

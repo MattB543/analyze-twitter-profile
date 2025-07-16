@@ -21,10 +21,15 @@ if (!window.__timelineForwarderInstalled) {
   window.addEventListener("message", (e) => {
     if (e.source !== window) return;
     if (e.data?.type === "TIMELINE_RESPONSE") {
+      console.log("📨 Forwarding TIMELINE_RESPONSE to background:", e.data.url);
       browser.runtime.sendMessage({
         cmd: "PROCESS_TIMELINE_DATA",
         data: e.data.data,
         url: e.data.url,
+      }).then(response => {
+        console.log("✅ Background processed message:", response);
+      }).catch(err => {
+        console.error("❌ Background message failed:", err);
       });
     }
   });
