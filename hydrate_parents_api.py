@@ -91,7 +91,8 @@ def hydrate_tweets(tweet_ids: List[str]) -> Iterator[Dict[str, Any]]:
             estimated_credits = max(found_count * CREDITS_PER_TWEET, 15)  # Minimum 15 credits per request
             
             # Track failed IDs (requested but not returned)
-            found_ids = {tweet.get("id") or tweet.get("id_str") for tweet in tweets if tweet.get("id") or tweet.get("id_str")}
+            # Convert all found IDs to strings to ensure proper comparison with batch (which contains strings)
+            found_ids = {str(tweet.get("id") or tweet.get("id_str")) for tweet in tweets if tweet.get("id") or tweet.get("id_str")}
             batch_failed = [tid for tid in batch if tid not in found_ids]
             failed_ids.extend(batch_failed)
             
