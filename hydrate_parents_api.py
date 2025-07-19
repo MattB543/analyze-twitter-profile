@@ -126,38 +126,43 @@ def hydrate_tweets(tweet_ids: List[str]) -> Iterator[Dict[str, Any]]:
 
 def extract_parent_ids_from_jsonl_files() -> Set[str]:
     """
-    Extract all parent tweet IDs from JSONL files in the current directory.
+    Extract all parent tweet IDs from JSONL files in the current directory and example_tweets/ subdirectory.
     
     Returns:
         Set of unique parent tweet IDs
     """
     all_parent_ids = set()
     
-    # Look for tweets, likes, and bookmarks JSONL files
+    # Look for tweets, likes, and bookmarks JSONL files in current directory and example_tweets/
     jsonl_patterns = ["tweets_*.jsonl", "likes_*.jsonl", "bookmarks_*.jsonl"]
+    search_paths = [pathlib.Path("."), pathlib.Path("example_tweets")]
     
-    for pattern in jsonl_patterns:
-        for file_path in pathlib.Path(".").glob(pattern):
-            print(f"📁 Scanning {file_path.name} for parent IDs...")
+    for search_path in search_paths:
+        if not search_path.exists():
+            continue
             
-            try:
-                content = file_path.read_text(encoding="utf-8")
-                for line_no, line in enumerate(content.splitlines(), 1):
-                    if not line.strip():
-                        continue
-                    
-                    try:
-                        obj = json.loads(line)
-                        parent_ids = obj.get("parent_ids", [])
-                        if parent_ids:
-                            all_parent_ids.update(str(pid) for pid in parent_ids if pid)
-                    except json.JSONDecodeError:
-                        print(f"⚠️  Skipping malformed JSON on line {line_no} in {file_path.name}")
-                        continue
+        for pattern in jsonl_patterns:
+            for file_path in search_path.glob(pattern):
+                print(f"📁 Scanning {file_path.name} for parent IDs...")
+                
+                try:
+                    content = file_path.read_text(encoding="utf-8")
+                    for line_no, line in enumerate(content.splitlines(), 1):
+                        if not line.strip():
+                            continue
                         
-            except Exception as e:
-                print(f"❌ Failed to read {file_path.name}: {e}")
-                continue
+                        try:
+                            obj = json.loads(line)
+                            parent_ids = obj.get("parent_ids", [])
+                            if parent_ids:
+                                all_parent_ids.update(str(pid) for pid in parent_ids if pid)
+                        except json.JSONDecodeError:
+                            print(f"⚠️  Skipping malformed JSON on line {line_no} in {file_path.name}")
+                            continue
+                            
+                except Exception as e:
+                    print(f"❌ Failed to read {file_path.name}: {e}")
+                    continue
     
     return all_parent_ids
 
