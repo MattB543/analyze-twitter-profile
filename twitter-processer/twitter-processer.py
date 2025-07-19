@@ -149,17 +149,22 @@ def find_files_in_folder(folder: Path) -> tuple[Path | None, Path | None, Path |
 #  Tweets & Likes                                                             #
 # --------------------------------------------------------------------------- #
 
-def parse_likes_jsonl(likes_file: Path) -> tuple[Dict[str, str], Dict[str, str], Dict[str, str]]:
-    """Parse likes from JSONL file exported by Firefox extension and extract media/URL mappings.
+def parse_twitter_jsonl(file_path: Path, file_type: str) -> tuple[List[Dict[str, Any]], Dict[str, str], Dict[str, str], Dict[str, str]]:
+    """Unified parser for tweets, likes, and bookmarks JSONL files.
+    
+    Args:
+        file_path: Path to the JSONL file
+        file_type: Type of file - 'tweets', 'likes', or 'bookmarks'
     
     Returns:
-        Tuple of (likes_lookup, media_mappings_dict, url_mappings_dict)
+        Tuple of (records_list, text_lookup, media_mappings_dict, url_mappings_dict)
     """
-    likes_lookup = {}
+    records = []
+    text_lookup = {}
     all_media_mappings = {}
     all_url_mappings = {}
     
-    for line_no, line in enumerate(likes_file.read_text(encoding="utf-8").splitlines(), 1):
+    for line_no, line in enumerate(file_path.read_text(encoding="utf-8").splitlines(), 1):
         if not line.strip():
             continue
         try:
@@ -170,7 +175,7 @@ def parse_likes_jsonl(likes_file: Path) -> tuple[Dict[str, str], Dict[str, str],
             raw_data = obj.get("raw", {})
             legacy = raw_data.get("legacy", {})
             
-            # --- full text resolution order (same as tweets) ---
+            # --- full text resolution order (same across all file types) ---
             text = None
             # 1) Note Tweet / Longform
             nt = raw_data.get("note_tweet", {}).get("note_tweet_results", {}).get("result", {})
@@ -199,8 +204,9 @@ def parse_likes_jsonl(likes_file: Path) -> tuple[Dict[str, str], Dict[str, str],
                 if short and exp:
                     all_url_mappings[short] = exp
             
+            # Store text in lookup for all file types
             if tweet_id and text:
-                likes_lookup[tweet_id] = text
+                text_lookup[tweet_id] = text
 
             if raw_data:
                 extended_entities = legacy.get("extended_entities", {})
@@ -213,11 +219,65 @@ def parse_likes_jsonl(likes_file: Path) -> tuple[Dict[str, str], Dict[str, str],
                     if shortened and media_url:
                         # Store media mapping but don't expand in text - leave for image processing
                         all_media_mappings[shortened] = media_url
+
+            # Create record with source type for processing
+            if file_type == "tweets":
+                # For tweets, extract reply/quote relationships
+                reply_to_tweet_id = legacy.get("in_reply_to_status_id_str", "")
+                quoted_tweet_id = legacy.get("quoted_status_id_str", "")
+                is_retweet = bool(raw_data.get("retweeted_status_result"))
+                
+                # Fallback to parent_ids if raw data not available
+                if not reply_to_tweet_id and not quoted_tweet_id:
+                    parent_ids = obj.get("parent_ids", [])
+                    if parent_ids:
+                        if obj.get("reply", 0) > 0 and parent_ids:
+                            reply_to_tweet_id = parent_ids[0]
+                        elif obj.get("quote", 0) > 0 and parent_ids:
+                            quoted_tweet_id = parent_ids[0]
+                        elif len(parent_ids) > 1:
+                            reply_to_tweet_id = parent_ids[0]
+                            quoted_tweet_id = parent_ids[1]
+                        elif parent_ids:
+                            reply_to_tweet_id = parent_ids[0]
+                
+                records.append({
+                    "id": tweet_id,
+                    "created_at": obj.get("created_at", ""),
+                    "text": text or "",
+                    "is_retweet": is_retweet,
+                    "is_reply": bool(reply_to_tweet_id),
+                    "quoted_tweet_id": quoted_tweet_id,
+                    "reply_to_tweet_id": reply_to_tweet_id,
+                    "reply_to_user": legacy.get("in_reply_to_screen_name", ""),
+                    "source": file_type
+                })
+            else:
+                # For likes and bookmarks, simpler record structure
+                screen_name = ""
+                if raw_data:
+                    core_data = raw_data.get("core", {})
+                    user_results = core_data.get("user_results", {})
+                    result = user_results.get("result", {})
+                    core_user = result.get("core", {})
+                    screen_name = core_user.get("screen_name", "")
+                
+                if not screen_name:
+                    user = obj.get("user", {})
+                    screen_name = user.get("screen_name", "")
+                
+                records.append({
+                    "id": tweet_id,
+                    "screen_name": '@' + screen_name if screen_name else "",
+                    "full_text": text or "",
+                    "source": file_type
+                })
                         
         except json.JSONDecodeError:
-            print(f"⚠️  Skipping malformed JSON on line {line_no} in {likes_file.name}", file=sys.stderr)
+            print(f"⚠️  Skipping malformed JSON on line {line_no} in {file_path.name}", file=sys.stderr)
             continue
-    return likes_lookup, all_media_mappings, all_url_mappings
+    
+    return records, text_lookup, all_media_mappings, all_url_mappings
 
 
 def load_parents_json(parents_file: Path) -> tuple[Dict[str, str], Dict[str, str]]:
@@ -258,101 +318,15 @@ def load_parents_json(parents_file: Path) -> tuple[Dict[str, str], Dict[str, str
         return {}, {}
 
 
+# Legacy function - replaced by parse_twitter_jsonl
 def parse_tweets_jsonl(tweets_file: Path) -> tuple[List[Dict[str, Any]], Dict[str, str], Dict[str, str]]:
     """Parse tweets from JSONL file exported by Firefox extension.
     
     Returns:
         Tuple of (tweets_list, media_mappings_dict, url_mappings_dict)
     """
-    tweets = []
-    all_media_mappings = {}
-    all_url_mappings = {}
-    
-    for line_no, line in enumerate(tweets_file.read_text(encoding="utf-8").splitlines(), 1):
-        if not line.strip():
-            continue
-        try:
-            obj = json.loads(line)
-            
-            # Extract proper parent relationships from raw data (more reliable than parent_ids array)
-            raw_data = obj.get("raw", {})
-            legacy = raw_data.get("legacy", {})
-            
-            # --- full text resolution order ---
-            text = None
-            # 1) Note Tweet / Longform
-            nt = raw_data.get("note_tweet", {}).get("note_tweet_results", {}).get("result", {})
-            if not text:
-                text = nt.get("text")
-                # note_tweet entity_set.urls[]
-                for u in nt.get("entity_set", {}).get("urls", []):
-                    short = u.get("url")
-                    exp = u.get("expanded_url")
-                    if short and exp:
-                        all_url_mappings[short] = exp
-
-            # 2) Legacy full_text
-            if not text:
-                text = legacy.get("full_text") or legacy.get("text")
-
-            # 3) Fallback to top-level truncated
-            if not text:
-                text = obj.get("text", "")
-
-            # Pull URL mappings from legacy.entities.urls
-            entities = legacy.get("entities", {})
-            for u in entities.get("urls", []):
-                short = u.get("url")
-                exp = u.get("expanded_url")
-                if short and exp:
-                    all_url_mappings[short] = exp
-            
-            # Get reply and quote IDs from the authoritative sources
-            reply_to_tweet_id = legacy.get("in_reply_to_status_id_str", "")
-            quoted_tweet_id = legacy.get("quoted_status_id_str", "")
-            
-            # Check for retweet - look for retweeted_status_result, not retweet count
-            is_retweet = bool(raw_data.get("retweeted_status_result"))
-            
-            # Media mappings (legacy.extended_entities.media preferred)
-            extended_entities = legacy.get("extended_entities", {})
-            media_source = extended_entities.get("media", []) or entities.get("media", [])
-            for media_data in media_source:
-                shortened = media_data.get("url", "")
-                media_url = media_data.get("media_url_https", "")
-                if shortened and media_url:
-                    all_media_mappings[shortened] = media_url
-            
-            # Fallback to parent_ids if raw data not available
-            if not reply_to_tweet_id and not quoted_tweet_id:
-                parent_ids = obj.get("parent_ids", [])
-                if parent_ids:
-                    # Try to guess: if reply_count > 0, first parent_id is likely reply
-                    if obj.get("reply", 0) > 0 and parent_ids:
-                        reply_to_tweet_id = parent_ids[0]
-                    elif obj.get("quote", 0) > 0 and parent_ids:
-                        quoted_tweet_id = parent_ids[0]
-                    elif len(parent_ids) > 1:
-                        reply_to_tweet_id = parent_ids[0]
-                        quoted_tweet_id = parent_ids[1]
-                    elif parent_ids:
-                        # Single parent - could be either, default to reply
-                        reply_to_tweet_id = parent_ids[0]
-            
-            tweets.append({
-                "id": obj.get("tweet_id", ""),
-                "created_at": obj.get("created_at", ""),
-                "text": text or "",
-                "is_retweet": is_retweet,
-                "is_reply": bool(reply_to_tweet_id),
-                "quoted_tweet_id": quoted_tweet_id,
-                "reply_to_tweet_id": reply_to_tweet_id,
-                "reply_to_user": legacy.get("in_reply_to_screen_name", ""),
-            })
-        except json.JSONDecodeError:
-            print(f"⚠️  Skipping malformed JSON on line {line_no} in {tweets_file.name}", file=sys.stderr)
-            continue
-    return tweets, all_media_mappings, all_url_mappings
+    records, text_lookup, media_mappings, url_mappings = parse_twitter_jsonl(tweets_file, "tweets")
+    return records, media_mappings, url_mappings
 
 
 def get_thread_context(tweet_id: str, tweet_lookup: Dict[str, str], max_depth: int = 3, visited: set = None) -> List[str]:
@@ -388,58 +362,73 @@ def get_thread_context(tweet_id: str, tweet_lookup: Dict[str, str], max_depth: i
     return context
 
 
-def export_tweets_text(tweets: List[Dict[str, Any]],
-                       tweet_lookup: Dict[str, str],
-                       outfile: Path,
-                       url_to_caption: Dict[str, str] = None,
-                       url_to_meta: Dict[str, str] = None,
-                       url_mappings: Dict[str, str] = None) -> None:
+def export_unified_text(records: List[Dict[str, Any]],
+                        tweet_lookup: Dict[str, str],
+                        outfile: Path,
+                        url_to_caption: Dict[str, str] = None,
+                        url_to_meta: Dict[str, str] = None,
+                        url_mappings: Dict[str, str] = None) -> None:
+    """Unified export function for all record types with consistent @screen_name format."""
     with outfile.open("w", encoding="utf-8") as f:
-        last = len(tweets) - 1
-        for i, tw in enumerate(tweets):
-            # Add context for replies / quotes if we have it (limit to prevent long chains)
-            context_depth = 0
-            max_context_depth = 3
-            
-            if tw["is_reply"] and tw["reply_to_tweet_id"] and context_depth < max_context_depth:
-                original = tweet_lookup.get(tw["reply_to_tweet_id"], "")
-                if original:
-                    # Truncate very long context tweets to keep output manageable
-                    if len(original) > 500:
-                        original = original[:500] + "... [truncated]"
-                    
-                    if url_mappings:
-                        original = expand_short_urls(original, url_mappings)
-                    if url_to_caption:
-                        original = replace_images_with_captions(original, url_to_caption)
-                    if url_to_meta:
-                        original = replace_urls_with_meta(original, url_to_meta)
-                    f.write(f"Original (@{tw['reply_to_user']}):\n{original}\n\nMy Reply:\n")
-                    context_depth += 1
-                    
-            elif tw["quoted_tweet_id"] and context_depth < max_context_depth:
-                original = tweet_lookup.get(tw["quoted_tweet_id"], "")
-                if original:
-                    # Truncate very long context tweets to keep output manageable
-                    if len(original) > 500:
-                        original = original[:500] + "... [truncated]"
-                    
-                    if url_mappings:
-                        original = expand_short_urls(original, url_mappings)
-                    if url_to_caption:
-                        original = replace_images_with_captions(original, url_to_caption)
-                    if url_to_meta:
-                        original = replace_urls_with_meta(original, url_to_meta)
-                    f.write(f"Quoted tweet:\n{original}\n\nQuote:\n")
-                    context_depth += 1
+        last = len(records) - 1
+        for i, record in enumerate(records):
+            # Handle tweets (have reply/quote context)
+            if record["source"] == "tweets":
+                # Get screen name from user info if available, or use a default
+                screen_name = record.get("reply_to_user", "")  # Will be empty for non-replies
+                if not screen_name:
+                    screen_name = "me"  # Default for my own tweets
+                
+                # Add context for replies / quotes if we have it
+                if record.get("is_reply") and record.get("reply_to_tweet_id"):
+                    original = tweet_lookup.get(record["reply_to_tweet_id"], "")
+                    if original:
+                        # Truncate very long context tweets to keep output manageable
+                        if len(original) > 500:
+                            original = original[:500] + "... [truncated]"
+                        
+                        if url_mappings:
+                            original = expand_short_urls(original, url_mappings)
+                        if url_to_caption:
+                            original = replace_images_with_captions(original, url_to_caption)
+                        if url_to_meta:
+                            original = replace_urls_with_meta(original, url_to_meta)
+                        f.write(f"@{record.get('reply_to_user', 'unknown')}:\n{original}\n\n@me:\n")
+                        
+                elif record.get("quoted_tweet_id"):
+                    original = tweet_lookup.get(record["quoted_tweet_id"], "")
+                    if original:
+                        # Truncate very long context tweets to keep output manageable
+                        if len(original) > 500:
+                            original = original[:500] + "... [truncated]"
+                        
+                        if url_mappings:
+                            original = expand_short_urls(original, url_mappings)
+                        if url_to_caption:
+                            original = replace_images_with_captions(original, url_to_caption)
+                        if url_to_meta:
+                            original = replace_urls_with_meta(original, url_to_meta)
+                        f.write(f"Quoted tweet:\n{original}\n\n@me:\n")
+                else:
+                    # Regular tweet, just show my screen name
+                    f.write("@me:\n")
 
-            text = tw["text"].replace("\r", "")
+                text = record["text"].replace("\r", "")
+            else:
+                # Handle likes and bookmarks (simpler format)
+                screen_name = record.get("screen_name", "")
+                if screen_name:
+                    f.write(f"{screen_name}:\n")
+                text = record.get("full_text", "").replace("\r", "")
+            
+            # Process URLs and images in the text
             if url_mappings:
                 text = expand_short_urls(text, url_mappings)
             if url_to_caption:
                 text = replace_images_with_captions(text, url_to_caption)
             if url_to_meta:
                 text = replace_urls_with_meta(text, url_to_meta)
+            
             f.write(text)
             if i != last:
                 f.write("\n---\n")
@@ -1164,90 +1153,61 @@ def main() -> None:
         safe_messagebox("error", "Missing Files", error_msg)
         return
     
-    # Process data and collect all texts for image analysis
+    # Process data using unified approach with de-duplication
     try:
-        like_lookup = {}
-        tweets = []
+        all_records = []  # Combined records from all sources
+        all_text_lookups = {}  # Combined text lookups with de-duplication priority: tweets > likes > bookmarks > parents
         all_media_mappings = {}  # Collect media mappings from all sources
-        
         all_url_mappings = {}
-        if likes_file:
-            print("\n🔄  Processing likes...")
-            like_lookup, likes_media_mappings, likes_url_mappings = parse_likes_jsonl(likes_file)
-            all_media_mappings.update(likes_media_mappings)
-            all_url_mappings.update(likes_url_mappings)
         
+        # Process all files with unified parser - tweets get highest priority
         if tweets_file:
-            print("🔄  Processing tweets...")
-            tweets, tweets_media_mappings, tweets_url_mappings = parse_tweets_jsonl(tweets_file)
-            all_media_mappings.update(tweets_media_mappings)
-            all_url_mappings.update(tweets_url_mappings)
+            print("\n🔄  Processing tweets...")
+            tweets_records, tweets_lookup, tweets_media, tweets_urls = parse_twitter_jsonl(tweets_file, "tweets")
+            all_records.extend(tweets_records)
+            all_text_lookups.update(tweets_lookup)  # Tweets get first priority
+            all_media_mappings.update(tweets_media)
+            all_url_mappings.update(tweets_urls)
         
-        # Load parent tweets if available (keep separate to avoid overwriting likes)
-        parent_lookup = {}
+        if likes_file:
+            print("🔄  Processing likes...")
+            likes_records, likes_lookup, likes_media, likes_urls = parse_twitter_jsonl(likes_file, "likes")
+            all_records.extend(likes_records)
+            # Add likes to lookup, but don't overwrite tweets
+            for tweet_id, text in likes_lookup.items():
+                if tweet_id not in all_text_lookups:
+                    all_text_lookups[tweet_id] = text
+            all_media_mappings.update(likes_media)
+            all_url_mappings.update(likes_urls)
+        
+        if bookmarks_file:
+            print("🔄  Processing bookmarks...")
+            bookmarks_records, bookmarks_lookup, bookmarks_media, bookmarks_urls = parse_twitter_jsonl(bookmarks_file, "bookmarks")
+            all_records.extend(bookmarks_records)
+            # Add bookmarks to lookup, but don't overwrite tweets or likes  
+            for tweet_id, text in bookmarks_lookup.items():
+                if tweet_id not in all_text_lookups:
+                    all_text_lookups[tweet_id] = text
+            all_media_mappings.update(bookmarks_media)
+            all_url_mappings.update(bookmarks_urls)
+        
+        # Load parent tweets if available
         if parents_file:
             print("🔄  Loading parent tweets...")
             parent_lookup, parent_url_mappings = load_parents_json(parents_file)
             all_url_mappings.update(parent_url_mappings)
-            print(f"📖  Total tweets in lookup: {len(like_lookup)} likes + {len(parent_lookup)} parents")
+            # Add parents to lookup, but don't overwrite existing tweets
+            for tweet_id, text in parent_lookup.items():
+                if tweet_id not in all_text_lookups:
+                    all_text_lookups[tweet_id] = text
         
-        # Build self tweet lookup so replies/quotes to your own tweets resolve
-        self_tweet_lookup = {}
-        if tweets:
-            self_tweet_lookup = {tw["id"]: tw["text"] for tw in tweets if tw.get("id")}
+        print(f"📖  Total unique tweets in lookup: {len(all_text_lookups)} (with de-duplication priority: tweets > likes > bookmarks > parents)")
         
-        # Helper function to lookup tweets with precedence: likes first, then parents, then self
-        def lookup_tweet(tweet_id):
-            """Look up tweet text, preferring likes over parents over self tweets."""
-            if tweet_id in like_lookup:
-                return like_lookup[tweet_id]
-            elif tweet_id in parent_lookup:
-                return parent_lookup[tweet_id]
-            elif tweet_id in self_tweet_lookup:
-                return self_tweet_lookup[tweet_id]
-            return None
-        
+        # Collect all texts for image and URL analysis
         all_texts = []
-        
-        # Collect tweet texts for image analysis (expand URLs first)
-        for tw in tweets:
-            expanded_text = expand_short_urls(tw["text"], all_url_mappings)
+        for text in all_text_lookups.values():
+            expanded_text = expand_short_urls(text, all_url_mappings)
             all_texts.append(expanded_text)
-            # Also include quoted/replied-to tweets if available
-            if tw["reply_to_tweet_id"]:
-                parent_text = lookup_tweet(tw["reply_to_tweet_id"])
-                if parent_text:
-                    expanded_parent_text = expand_short_urls(parent_text, all_url_mappings)
-                    all_texts.append(expanded_parent_text)
-            if tw["quoted_tweet_id"]:
-                quoted_text = lookup_tweet(tw["quoted_tweet_id"])
-                if quoted_text:
-                    expanded_quoted_text = expand_short_urls(quoted_text, all_url_mappings)
-                    all_texts.append(expanded_quoted_text)
-        
-        # Collect liked tweet texts (expand URLs)
-        for liked_text in like_lookup.values():
-            expanded_liked_text = expand_short_urls(liked_text, all_url_mappings)
-            all_texts.append(expanded_liked_text)
-        
-        # Also collect parent tweet texts (that aren't already in likes)
-        for parent_id, parent_text in parent_lookup.items():
-            if parent_id not in like_lookup:
-                expanded_parent_text = expand_short_urls(parent_text, all_url_mappings)
-                all_texts.append(expanded_parent_text)
-        
-        # Process bookmarks if available
-        bookmarks = None
-        if bookmarks_file:
-            print("🔄  Processing bookmarks...")
-            bookmarks, bookmarks_media_mappings, bookmarks_url_mappings = parse_bookmarks_jsonl(bookmarks_file)
-            all_media_mappings.update(bookmarks_media_mappings)
-            all_url_mappings.update(bookmarks_url_mappings)
-            # Add bookmark texts to analysis (expand URLs)
-            for bm in bookmarks:
-                bookmark_text = bm.get("full_text", "")
-                expanded_bookmark_text = expand_short_urls(bookmark_text, all_url_mappings)
-                all_texts.append(expanded_bookmark_text)
         
         # Generate image captions for all texts with caching
         url_to_caption = {}
@@ -1278,22 +1238,21 @@ def main() -> None:
         except Exception as e:
             print(f"⚠️  Failed generating URL metadata: {e}")
         
-        # Create combined lookup for export functions (likes take precedence over parents, parents over self)
-        combined_lookup = self_tweet_lookup.copy()  # Start with self tweets as base
-        combined_lookup.update(parent_lookup)       # Override with parents
-        combined_lookup.update(like_lookup)         # Override with likes (likes take precedence)
+        # Export text files using unified approach
+        tweets_records = [r for r in all_records if r["source"] == "tweets"]
+        likes_records = [r for r in all_records if r["source"] == "likes"]
+        bookmarks_records = [r for r in all_records if r["source"] == "bookmarks"]
         
-        # Export text files with image captions and URL metadata replaced
-        if tweets:
-            export_tweets_text(tweets, combined_lookup, folder / "tweets_for_llm.txt", url_to_caption, url_to_meta, all_url_mappings)
+        if tweets_records:
+            export_unified_text(tweets_records, all_text_lookups, folder / "tweets_for_llm.txt", url_to_caption, url_to_meta, all_url_mappings)
             print("✅  Exported tweets_for_llm.txt")
         
-        if like_lookup:
-            export_likes_text(like_lookup, folder / "likes_for_llm.txt", url_to_caption, url_to_meta, all_url_mappings)
+        if likes_records:
+            export_unified_text(likes_records, all_text_lookups, folder / "likes_for_llm.txt", url_to_caption, url_to_meta, all_url_mappings)
             print("✅  Exported likes_for_llm.txt")
         
-        if bookmarks:
-            export_bookmarks_text(bookmarks, folder / "bookmarks_for_llm.txt", url_to_caption, url_to_meta, all_url_mappings)
+        if bookmarks_records:
+            export_unified_text(bookmarks_records, all_text_lookups, folder / "bookmarks_for_llm.txt", url_to_caption, url_to_meta, all_url_mappings)
             print("✅  Exported bookmarks_for_llm.txt")
             
     except Exception as e:
