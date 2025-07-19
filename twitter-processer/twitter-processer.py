@@ -1138,7 +1138,7 @@ def main() -> None:
     if parents_file:
         found_files.append(f"✅  Found parents file: {parents_file.name}")
     else:
-        missing_files.append("ℹ️  No parents.json file found (optional - run hydrate_parents.py first)")
+        missing_files.append("ℹ️  No parents.json file found (optional - run hydrate_parents_api.py first to enable reply context)")
     
     # Print status
     for msg in found_files:
@@ -1203,6 +1203,11 @@ def main() -> None:
         
         print(f"📖  Total unique tweets in lookup: {len(all_text_lookups)} (with de-duplication priority: tweets > likes > bookmarks > parents)")
         
+        # Check for reply context availability
+        tweets_with_replies = sum(1 for r in all_records if r.get("source") == "tweets" and r.get("is_reply"))
+        if tweets_with_replies > 0 and not parents_file:
+            print(f"💡  Found {tweets_with_replies} reply tweets, but no parent context available. Run 'python hydrate_parents_api.py' first to see original tweets in reply chains.")
+        
         # Collect all texts for image and URL analysis
         all_texts = []
         for text in all_text_lookups.values():
@@ -1238,10 +1243,35 @@ def main() -> None:
         except Exception as e:
             print(f"⚠️  Failed generating URL metadata: {e}")
         
-        # Export text files using unified approach
-        tweets_records = [r for r in all_records if r["source"] == "tweets"]
-        likes_records = [r for r in all_records if r["source"] == "likes"]
-        bookmarks_records = [r for r in all_records if r["source"] == "bookmarks"]
+        # Export text files using unified approach with proper deduplication
+        # Deduplicate records by tweet_id with priority: tweets > likes > bookmarks
+        seen_tweet_ids = set()
+        tweets_records = []
+        likes_records = []
+        bookmarks_records = []
+        
+        # First pass: tweets (highest priority)
+        for r in all_records:
+            tweet_id = r.get("id")
+            if r["source"] == "tweets" and tweet_id and tweet_id not in seen_tweet_ids:
+                tweets_records.append(r)
+                seen_tweet_ids.add(tweet_id)
+        
+        # Second pass: likes (medium priority)
+        for r in all_records:
+            tweet_id = r.get("id")
+            if r["source"] == "likes" and tweet_id and tweet_id not in seen_tweet_ids:
+                likes_records.append(r)
+                seen_tweet_ids.add(tweet_id)
+        
+        # Third pass: bookmarks (lowest priority)
+        for r in all_records:
+            tweet_id = r.get("id")
+            if r["source"] == "bookmarks" and tweet_id and tweet_id not in seen_tweet_ids:
+                bookmarks_records.append(r)
+                seen_tweet_ids.add(tweet_id)
+        
+        print(f"📊  After deduplication: {len(tweets_records)} tweets, {len(likes_records)} likes, {len(bookmarks_records)} bookmarks")
         
         if tweets_records:
             export_unified_text(tweets_records, all_text_lookups, folder / "tweets_for_llm.txt", url_to_caption, url_to_meta, all_url_mappings)
