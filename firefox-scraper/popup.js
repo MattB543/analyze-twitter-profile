@@ -5,6 +5,16 @@ if (typeof browser === "undefined") {
   var browser = chrome;
 }
 
+// Get explicit DOM handles instead of relying on implicit globals
+const startBtn = document.getElementById("start");
+const stopBtn = document.getElementById("stop");  
+const clearBtn = document.getElementById("clear");
+const scrollCountInput = document.getElementById("scrollCount");
+const scopeTweets = document.getElementById("scopeTweets");
+const scopeBookmarks = document.getElementById("scopeBookmarks");
+const scopeLikes = document.getElementById("scopeLikes");
+const scopeReplies = document.getElementById("scopeReplies");
+
 async function send(cmd, data = {}) {
   try {
     const [tab] = await browser.tabs.query({
@@ -21,16 +31,29 @@ async function send(cmd, data = {}) {
   }
 }
 
-start.onclick = () => {
-  // Prevent double-click issues
-  start.disabled = true;
-  start.textContent = "⏳ Starting...";
-  
-  const scrollCountInput = document.getElementById("scrollCount");
-  const scrollCount = scrollCountInput.value.trim();
-  // Convert to number if provided, otherwise null for unlimited
-  const maxScrolls = scrollCount ? parseInt(scrollCount, 10) : null;
-  send("START", { maxScrolls });
+startBtn.onclick = () => {
+  startBtn.disabled = true;
+  startBtn.textContent = "⏳ Starting…";
+
+  const maxScrolls = scrollCountInput.value.trim()
+    ? parseInt(scrollCountInput.value, 10)
+    : null;
+
+  /* keep the visual order: tweets → bookmarks → likes → replies */
+  const scopes = [];
+  if (scopeTweets.checked)    scopes.push("tweets");
+  if (scopeBookmarks.checked) scopes.push("bookmarks");
+  if (scopeLikes.checked)     scopes.push("likes");
+  if (scopeReplies.checked)   scopes.push("replies");
+
+  if (!scopes.length) {       // nothing selected
+    alert("Pick at least one scope to capture!");
+    startBtn.disabled = false;
+    startBtn.textContent = "▶️ Start capture";
+    return;
+  }
+
+  send("START", { maxScrolls, scopes });
 };
-stop.onclick = () => send("STOP");
-clear.onclick = () => send("CLEAR");
+stopBtn.onclick = () => send("STOP");
+clearBtn.onclick = () => send("CLEAR");

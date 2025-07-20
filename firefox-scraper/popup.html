@@ -35,6 +35,15 @@
   <input type="number" id="scrollCount" placeholder="e.g. 100" min="1" />
 </div>
 
+<fieldset style="border:0;margin:8px 0;padding:0">
+  <legend style="font-size:12px;color:#666;padding:0 0 4px">Capture:</legend>
+
+  <label><input type="checkbox" id="scopeTweets"    checked /> Tweets</label><br>
+  <label><input type="checkbox" id="scopeBookmarks"          /> Bookmarks</label><br>
+  <label><input type="checkbox" id="scopeLikes"              /> Likes</label><br>
+  <label><input type="checkbox" id="scopeReplies"            /> Replies</label>
+</fieldset>
+
 <button id="start">▶️ Start capture</button>
 <button id="stop">⏹ Stop scrolling & download</button>
 <button id="clear">🧹 Clear memory</button>
