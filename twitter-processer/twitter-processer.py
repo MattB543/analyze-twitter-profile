@@ -164,8 +164,26 @@ def parse_twitter_jsonl(file_path: Path, file_type: str) -> tuple[List[Dict[str,
     all_media_mappings = {}
     all_url_mappings = {}
     meta_by_id = {}  # Track relationships for all sources
+    self_ids = set()  # filled only when file_type == "tweets"
     
-    for line_no, line in enumerate(file_path.read_text(encoding="utf-8").splitlines(), 1):
+    lines = file_path.read_text(encoding="utf-8").splitlines()
+    
+    # First scan (tweets file only) to learn self user ids
+    if file_type == "tweets":
+        for line in lines:
+            if not line.strip():
+                continue
+            try:
+                obj = json.loads(line)
+                raw_data = obj.get("raw", {})
+                user_res = raw_data.get("core", {}).get("user_results", {}).get("result", {})
+                uid = user_res.get("rest_id") or user_res.get("id")
+                if uid:
+                    self_ids.add(str(uid))
+            except Exception:
+                continue
+    
+    for line_no, line in enumerate(lines, 1):
         if not line.strip():
             continue
         try:
@@ -270,14 +288,16 @@ def parse_twitter_jsonl(file_path: Path, file_type: str) -> tuple[List[Dict[str,
                         # Single parent - assume it's a reply
                         reply_to_tweet_id = parent_ids[0]
             
-            # Extract screen name (for likes/bookmarks author or reply target)
+            # Extract author id & screen name
             screen_name = ""
+            author_id = ""
             if raw_data:
                 core_data = raw_data.get("core", {})
                 user_results = core_data.get("user_results", {})
                 result = user_results.get("result", {})
                 core_user = result.get("core", {})
                 screen_name = core_user.get("screen_name", "")
+                author_id = result.get("rest_id") or result.get("id") or ""
             
             if not screen_name:
                 user = obj.get("user", {})
@@ -288,18 +308,22 @@ def parse_twitter_jsonl(file_path: Path, file_type: str) -> tuple[List[Dict[str,
                 meta_by_id[tweet_id] = {
                     "reply_to": reply_to_tweet_id,
                     "quoted": quoted_tweet_id,
-                    "screen_name": screen_name,
+                    "screen_name": screen_name,  # keep raw (no @)
+                    "author_id": author_id,
                     "reply_to_user": reply_to_user,
                     "source": file_type
                 }
             
             # Create unified record structure for all sources
+            authored_by_me = (author_id and author_id in self_ids)
             if file_type == "tweets":
                 is_retweet = bool(raw_data.get("retweeted_status_result"))
                 records.append({
                     "id": tweet_id,
                     "created_at": obj.get("created_at", ""),
                     "text": text or "",
+                    "author_id": author_id,
+                    "authored_by_me": True,  # by definition in tweets file
                     "is_retweet": is_retweet,
                     "is_reply": bool(reply_to_tweet_id),
                     "quoted_tweet_id": quoted_tweet_id,
@@ -311,7 +335,9 @@ def parse_twitter_jsonl(file_path: Path, file_type: str) -> tuple[List[Dict[str,
                 # For likes and bookmarks, now include relationship metadata
                 records.append({
                     "id": tweet_id,
-                    "screen_name": '@' + screen_name if screen_name else "",
+                    "screen_name": screen_name,  # store raw (no @)
+                    "author_id": author_id,
+                    "authored_by_me": authored_by_me,
                     "full_text": text or "",
                     "is_reply": bool(reply_to_tweet_id),
                     "quoted_tweet_id": quoted_tweet_id,
@@ -560,14 +586,15 @@ def export_unified_text(records: List[Dict[str, Any]],
             
             # Handle retweets with proper labeling
             if is_retweet:
-                if source == "tweets":
+                authored_by_me = record.get("authored_by_me", False)
+                if authored_by_me:
                     f.write("RT @me:\n")
                 else:
                     screen_name = record.get("screen_name", "")
-                    if screen_name:
-                        f.write(f"RT {screen_name}:\n")
+                    label = f"RT @{screen_name}" if screen_name else "RT @unknown"
+                    f.write(f"{label}:\n")
                 
-                main_text = record.get("text" if source == "tweets" else "full_text", "")
+                main_text = record.get("text") or record.get("full_text", "")
                 main_text = process_text(main_text)
                 f.write(main_text)
             
@@ -601,9 +628,15 @@ def export_unified_text(records: List[Dict[str, Any]],
                         
                         # Format based on context type and whether it's the current user's tweet
                         if ctx_id == tweet_id:
-                            # This is the current user's tweet - always use @me for authored content
+                            # This is the tweet being processed (could be user's or someone else's)
                             user_tweet_written = True
-                            f.write("@me:\n")
+                            
+                            # Determine if this is actually the user's authored content or someone else's
+                            if record.get("authored_by_me"):
+                                f.write("@me:\n")
+                            else:
+                                label = f"@{ctx_screen_name}" if ctx_screen_name and ctx_screen_name != "unknown" else "@unknown"
+                                f.write(f"{label}:\n")
                             f.write(ctx_text)
                         elif ctx_type == "quoted":
                             f.write(f"Quoted tweet (@{ctx_screen_name}):\n{ctx_text}\n\n")
