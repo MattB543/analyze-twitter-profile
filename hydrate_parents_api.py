@@ -2,9 +2,8 @@
 """
 hydrate_parents_api.py
 
-Hydrate parent tweets using TwitterAPI.io instead of the official Twitter API.
-This replaces the twarc2-based hydrate_parents.py with a simpler implementation
-that uses TwitterAPI.io's REST endpoints.
+Hydrate parent tweets using TwitterAPI.io, including quoted tweets.
+Now recursively fetches both parent tweets AND any tweets quoted by those parents.
 
 Usage:
     export TWITTERAPI_KEY="pk_live_yourKeyHere"
@@ -14,7 +13,7 @@ Requirements:
     - TWITTERAPI_KEY environment variable
     - requests library
     - Input JSONL files in current directory (tweets_*.jsonl, likes_*.jsonl, bookmarks_*.jsonl)
-    - Writes to parents.json (not JSONL for compatibility with existing processor)
+    - Writes to parents.json (includes both parents and quoted tweets)
 """
 
 import os
@@ -48,6 +47,33 @@ def chunks(lst: List[str], n: int) -> Iterator[List[str]]:
         if not batch:
             break
         yield batch
+
+def extract_quoted_tweet_ids(tweets: List[Dict[str, Any]]) -> Set[str]:
+    """
+    Extract quoted tweet IDs from a list of tweets.
+    
+    Args:
+        tweets: List of tweet objects
+        
+    Returns:
+        Set of quoted tweet IDs
+    """
+    quoted_ids = set()
+    
+    for tweet in tweets:
+        # Check referenced_tweets for quoted tweets (Twitter API v2 format)
+        referenced = tweet.get("referenced_tweets", [])
+        for ref in referenced:
+            if ref.get("type") == "quoted" and ref.get("id"):
+                quoted_ids.add(str(ref["id"]))
+        
+        # Also check legacy format (if present)
+        legacy = tweet.get("legacy", {})
+        quoted_id = legacy.get("quoted_status_id_str")
+        if quoted_id:
+            quoted_ids.add(str(quoted_id))
+    
+    return quoted_ids
 
 def hydrate_tweets(tweet_ids: List[str]) -> Iterator[Dict[str, Any]]:
     """
@@ -91,7 +117,6 @@ def hydrate_tweets(tweet_ids: List[str]) -> Iterator[Dict[str, Any]]:
             estimated_credits = max(found_count * CREDITS_PER_TWEET, 15)  # Minimum 15 credits per request
             
             # Track failed IDs (requested but not returned)
-            # Convert all found IDs to strings to ensure proper comparison with batch (which contains strings)
             found_ids = {str(tweet.get("id") or tweet.get("id_str")) for tweet in tweets if tweet.get("id") or tweet.get("id_str")}
             batch_failed = [tid for tid in batch if tid not in found_ids]
             failed_ids.extend(batch_failed)
@@ -105,11 +130,11 @@ def hydrate_tweets(tweet_ids: List[str]) -> Iterator[Dict[str, Any]]:
                 
         except requests.exceptions.RequestException as e:
             print(f"❌ API request failed for batch {processed_batches}: {e}")
-            failed_ids.extend(batch)  # Mark entire batch as failed
+            failed_ids.extend(batch)
             continue
         except json.JSONDecodeError as e:
             print(f"❌ Failed to parse JSON response for batch {processed_batches}: {e}")
-            failed_ids.extend(batch)  # Mark entire batch as failed
+            failed_ids.extend(batch)
             continue
         
         # Rate limiting
@@ -181,7 +206,7 @@ def load_existing_parents() -> Dict[str, Dict[str, Any]]:
     try:
         with parents_file.open("r", encoding="utf-8") as f:
             existing = json.load(f)
-        print(f"📖 Loaded {len(existing)} existing parent tweets from parents.json")
+        print(f"📖 Loaded {len(existing)} existing tweets from parents.json")
         return existing
     except Exception as e:
         print(f"⚠️  Failed to load existing parents.json: {e}")
@@ -197,12 +222,12 @@ def save_parents(parents: Dict[str, Dict[str, Any]]) -> None:
     try:
         with open("parents.json", "w", encoding="utf-8") as f:
             json.dump(parents, f, indent=2, ensure_ascii=False)
-        print(f"💾 Saved {len(parents)} parent tweets to parents.json")
+        print(f"💾 Saved {len(parents)} tweets to parents.json")
     except Exception as e:
         print(f"❌ Failed to save parents.json: {e}")
 
 def main():
-    print("🚀 TwitterAPI.io Parent Tweet Hydrator")
+    print("🚀 TwitterAPI.io Parent & Quoted Tweet Hydrator")
     print("=" * 50)
     
     # Step 1: Extract parent IDs from JSONL files
@@ -215,39 +240,68 @@ def main():
     
     print(f"📊 Found {len(all_parent_ids)} unique parent tweet IDs")
     
-    # Step 2: Load existing parents to avoid re-hydrating
-    print("\n📖 Step 2: Loading existing parent tweets...")
-    existing_parents = load_existing_parents()
+    # Step 2: Load existing tweets to avoid re-hydrating
+    print("\n📖 Step 2: Loading existing tweets...")
+    existing_tweets = load_existing_parents()
     
-    # Step 3: Determine which IDs need hydration
-    print("\n🔍 Step 3: Determining tweets to hydrate...")
-    ids_to_hydrate = [tid for tid in all_parent_ids if tid not in existing_parents]
+    # Step 3: Hydrate tweets recursively (parents + quoted tweets)
+    print("\n🔄 Step 3: Hydrating tweets with quoted tweet detection...")
     
-    if not ids_to_hydrate:
-        print("✅ All parent tweets already hydrated!")
-        return
+    # Start with parent IDs that aren't already hydrated
+    ids_to_process = [tid for tid in all_parent_ids if tid not in existing_tweets]
+    all_new_tweets = {}
+    max_depth = 3  # Limit recursion depth
+    current_depth = 0
     
-    print(f"🎯 Need to hydrate {len(ids_to_hydrate)} new parent tweets")
-    estimated_credits = len(ids_to_hydrate) * CREDITS_PER_TWEET
-    print(f"💰 Estimated cost: {estimated_credits:,} credits")
+    while ids_to_process and current_depth < max_depth:
+        current_depth += 1
+        print(f"\n🔍 Depth {current_depth}: Processing {len(ids_to_process)} tweet IDs...")
+        
+        if current_depth == 1:
+            print("   (Direct parent tweets)")
+        else:
+            print("   (Quoted tweets from previous level)")
+        
+        # Hydrate current batch
+        new_tweets = []
+        for tweet in hydrate_tweets(ids_to_process):
+            tweet_id = str(tweet.get("id") or tweet.get("id_str"))
+            if tweet_id:
+                all_new_tweets[tweet_id] = tweet
+                new_tweets.append(tweet)
+        
+        print(f"✅ Hydrated {len(new_tweets)} tweets at depth {current_depth}")
+        
+        # Extract quoted tweet IDs from newly hydrated tweets
+        quoted_ids = extract_quoted_tweet_ids(new_tweets)
+        
+        # Filter out already hydrated quoted tweets
+        quoted_to_fetch = [
+            qid for qid in quoted_ids 
+            if qid not in existing_tweets and qid not in all_new_tweets
+        ]
+        
+        if quoted_to_fetch:
+            print(f"🔗 Found {len(quoted_to_fetch)} quoted tweets to fetch next")
+        
+        # Prepare for next iteration
+        ids_to_process = quoted_to_fetch
     
-    # Step 4: Hydrate missing tweets
-    print(f"\n🔄 Step 4: Hydrating {len(ids_to_hydrate)} parent tweets...")
-    new_parents = {}
+    # Step 4: Merge and save results
+    print(f"\n💾 Step 4: Saving results...")
+    all_tweets = {**existing_tweets, **all_new_tweets}
     
-    for tweet in hydrate_tweets(ids_to_hydrate):
-        tweet_id = tweet.get("id") or tweet.get("id_str")
-        if tweet_id:
-            new_parents[str(tweet_id)] = tweet
-    
-    # Step 5: Merge and save results
-    print(f"\n💾 Step 5: Saving results...")
-    all_parents = {**existing_parents, **new_parents}
-    
-    if new_parents:
-        save_parents(all_parents)
-        print(f"✅ Successfully hydrated {len(new_parents)} new parent tweets")
-        print(f"📊 Total parent tweets: {len(all_parents)}")
+    if all_new_tweets:
+        save_parents(all_tweets)
+        print(f"✅ Successfully hydrated {len(all_new_tweets)} new tweets")
+        print(f"📊 Total tweets in parents.json: {len(all_tweets)}")
+        
+        # Show breakdown
+        parent_count = len([tid for tid in all_new_tweets if tid in all_parent_ids])
+        quoted_count = len(all_new_tweets) - parent_count
+        if quoted_count > 0:
+            print(f"   - Direct parents: {parent_count}")
+            print(f"   - Quoted tweets: {quoted_count}")
     else:
         print("⚠️  No new tweets were successfully hydrated")
     
