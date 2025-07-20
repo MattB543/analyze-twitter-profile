@@ -66,6 +66,53 @@ function extractTimeline(obj) {
   return null;
 }
 
+// ───────────── batch‑run state ─────────────
+let scopeQueue   = [];   // e.g. ["tweets","bookmarks",…]
+let currentScope = null;
+let startParams  = {};   // keeps original maxScrolls etc.
+
+function makeUrl(scope, baseUrl) {
+  const m = baseUrl.match(/^https:\/\/(?:x|twitter)\.com\/([^\/?#]+)/i);
+  const username = m ? m[1] : null;
+  if (!username) return baseUrl;                        // fallback
+
+  switch (scope) {
+    case "tweets":    return `https://x.com/${username}`;
+    case "replies":   return `https://x.com/${username}/with_replies`;
+    case "likes":     return `https://x.com/${username}/likes`;
+    case "bookmarks": return `https://x.com/i/bookmarks`;
+    default:          return baseUrl;
+  }
+}
+
+async function beginScope(tabId, scope) {
+  currentScope = scope;
+  console.log(`🚩 Starting scope: ${scope}`);
+
+  const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+  const targetUrl = makeUrl(scope, tab.url);
+
+  // navigate only if we're not already there
+  if (tab.url !== targetUrl) {
+    await browser.tabs.update(tabId, { url: targetUrl });
+  } else {
+    // ensure full reload so interceptor sees first page
+    browser.tabs.reload(tabId, { bypassCache: true });
+  }
+
+  /* same one‑shot onUpdated trick as before */
+  const onUpdated = (updatedId, info) => {
+    if (updatedId === tabId && info.status === "complete") {
+      browser.tabs.onUpdated.removeListener(onUpdated);
+      console.log("✅ Page ready – launching scroller");
+      browser.tabs
+        .sendMessage(tabId, { cmd: "SCROLL_START", maxScrolls: startParams.maxScrolls })
+        .catch((err) => console.error("❌ SCROLL_START failed:", err));
+    }
+  };
+  browser.tabs.onUpdated.addListener(onUpdated);
+}
+
 // ─────────────────────── capture & download ───────────────────────
 const tweets = new Map(); // tweet_id → flattened
 
@@ -98,6 +145,8 @@ async function download() {
         scope = "likes";
       } else if (/\/i\/bookmarks/i.test(tab.url)) {
         scope = "bookmarks";
+      } else if (/\/with_replies(?:\/|$|\?)/i.test(tab.url)) {
+        scope = "replies";
       } else if (/^https:\/\/(twitter|x)\.com\/[^\/?#]+(?:\/?$|\?)/i.test(tab.url)) {
         scope = "tweets";
       }
@@ -230,27 +279,13 @@ browser.runtime.onMessage.addListener(async (msg, sender, sendResponse) => {
   try {
     switch (msg.cmd) {
       case "START": {
-        console.log(`🧹 Clearing ${tweets.size} existing tweets before starting`);
-        tweets.clear();           // safety: flush any old run
-        
-        // 🔄 1) Hard‑reload (returns immediately)
-        console.log("🔄 Reloading tab to capture initial tweets…");
-        browser.tabs.reload(tabId, { bypassCache: true });
+        tweets.clear();
 
-        // 2) One‑shot listener – fires when the *same* tab finishes loading
-        const onUpdated = (updatedId, info) => {
-          if (updatedId === tabId && info.status === "complete") {
-            browser.tabs.onUpdated.removeListener(onUpdated);
-            console.log("✅ Tab reloaded – starting scroller");
-            browser.tabs.sendMessage(tabId, {
-              cmd: "SCROLL_START",
-              maxScrolls: msg.maxScrolls,
-            }).catch(err => console.error("❌ Could not start scroller:", err));
-          }
-        };
-        browser.tabs.onUpdated.addListener(onUpdated);
+        // remember params & queue
+        scopeQueue   = Array.isArray(msg.scopes) ? [...msg.scopes] : ["tweets"];
+        startParams  = { maxScrolls: msg.maxScrolls };
 
-        // reply to popup right away so it can close
+        await beginScope(tabId, scopeQueue.shift());  // kicks off first run
         sendResponse({ success: true });
         break;
       }
@@ -282,12 +317,23 @@ browser.runtime.onMessage.addListener(async (msg, sender, sendResponse) => {
             if (!['TimelineAddEntries','TimelineReplaceEntry','TimelineAddToModule','TimelineTerminateTimeline','TimelinePinEntry']
                   .includes(instr.type)) continue;
             
-            const entries =                     // normal → replace → module
-              instr.entries ??
-              (instr.entry ? [instr.entry] : (instr.module?.items ?? []));
-            for (const ent of entries) {
-              const item = ent.content?.itemContent               // normal
-                       ?? ent.content?.item?.itemContent;         // inside module
+            const initialEntries = instr.entries
+               ?? (instr.entry ? [instr.entry] : (instr.module?.items ?? []))
+               ?? [];                       // defensively default to empty array
+            
+            // Use queue to handle nested modules without iterator issues
+            const queue = [...initialEntries];
+            for (let i = 0; i < queue.length; i++) {
+              const ent = queue[i];
+              
+              // If this entry is a TimelineTimelineModule, add its children to queue
+              if (ent.content?.items?.length) {
+                queue.push(...ent.content.items);
+                continue;                  // nothing else to do for wrapper
+              }
+
+              const item = ent.content?.itemContent     // ordinary entry
+                       ?? ent.content?.item?.itemContent; // module child
               const tw = item?.tweet_results?.result;
               if (tw?.__typename === "Tweet") {
                 if (!tweets.has(tw.rest_id)) {
@@ -298,7 +344,7 @@ browser.runtime.onMessage.addListener(async (msg, sender, sendResponse) => {
                   console.log(`⚠️ Tweet already exists: ${tw.rest_id}`);
                 }
               } else {
-                console.log("❌ No tweet found in entry:", {
+                console.debug("❌ No tweet found in entry:", {
                   entryType: ent.entryId || ent.content?.entryType || "unknown",
                   contentKeys: Object.keys(ent.content || {}),
                   itemContent: ent.content?.itemContent,
@@ -320,12 +366,30 @@ browser.runtime.onMessage.addListener(async (msg, sender, sendResponse) => {
       case "STOP":
         browser.tabs.sendMessage(tabId, { cmd: "SCROLL_STOP" });
         await download();
+
+        // move on or finish
+        if (scopeQueue.length) {
+          tweets.clear();                          // wipe previous data
+          await beginScope(tabId, scopeQueue.shift());
+        } else {
+          console.log("🎉 Batch run complete");
+        }
+
         sendResponse({ success: true });
         break;
 
       case "SCROLL_FINISHED":
         console.log("🔔 Scroller reported completion");
         await download();
+
+        // move on or finish
+        if (scopeQueue.length) {
+          tweets.clear();                          // wipe previous data
+          await beginScope(tabId, scopeQueue.shift());
+        } else {
+          console.log("🎉 Batch run complete");
+        }
+
         sendResponse({ success: true });
         break;
 
