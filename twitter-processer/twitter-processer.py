@@ -544,6 +544,10 @@ def export_unified_text(records: List[Dict[str, Any]],
         return text
     
     with outfile.open("w", encoding="utf-8") as f:
+        # Determine the tag name from the filename
+        file_type = outfile.stem.split('_')[0]  # Extract 'tweets', 'likes', or 'bookmarks' from filename
+        f.write(f"<{file_type}>\n")
+        
         last = len(records) - 1
         for i, record in enumerate(records):
             tweet_id = record.get("id")
@@ -597,14 +601,9 @@ def export_unified_text(records: List[Dict[str, Any]],
                         
                         # Format based on context type and whether it's the current user's tweet
                         if ctx_id == tweet_id:
-                            # This is the current user's tweet
+                            # This is the current user's tweet - always use @me for authored content
                             user_tweet_written = True
-                            if source == "tweets":
-                                f.write("@me:\n")
-                            else:
-                                # For likes/bookmarks, show it was liked/bookmarked
-                                action = "liked" if source == "likes" else "bookmarked"
-                                f.write(f"@me {action}:\n")
+                            f.write("@me:\n")
                             f.write(ctx_text)
                         elif ctx_type == "quoted":
                             f.write(f"Quoted tweet (@{ctx_screen_name}):\n{ctx_text}\n\n")
@@ -619,9 +618,12 @@ def export_unified_text(records: List[Dict[str, Any]],
                         if source == "tweets":
                             f.write("@me:\n")
                         else:
+                            # This should not happen in tweets_for_llm.txt since source should always be "tweets"
                             screen_name = record.get("screen_name", "")
-                            action = "liked" if source == "likes" else "bookmarked"
-                            f.write(f"@me {action} @{ctx_screen_name}:\n" if screen_name else f"@me {action}:\n")
+                            if screen_name:
+                                f.write(f"{screen_name}:\n")
+                            else:
+                                f.write("@unknown:\n")
                         f.write(main_text)
                 
                 else:
@@ -652,6 +654,9 @@ def export_unified_text(records: List[Dict[str, Any]],
             # Add separator between records
             if i != last:
                 f.write("\n---\n")
+        
+        # Close the XML tag
+        f.write(f"\n</{file_type}>")
 
 
 def export_likes_text(tweet_lookup: Dict[str, str], outfile: Path, url_to_caption: Dict[str, str] = None, url_to_meta: Dict[str, str] = None, url_mappings: Dict[str, str] = None) -> None:
