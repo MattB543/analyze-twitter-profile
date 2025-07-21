@@ -27,11 +27,11 @@ function flatten(tweet) {
     quote_count: l.quote_count,
     user_handle: u.screen_name,
     parent_ids: [
-      ...(l.referenced_tweets ?? []).map(r => r.id_str),
+      ...(l.referenced_tweets ?? []).map((r) => r.id_str),
       l.in_reply_to_status_id_str,
       l.quoted_status_id_str,
-      quoted?.rest_id,        // nested quote
-      ...(retweeted?.rest_id ? [retweeted.rest_id] : [])  // retweeted original
+      quoted?.rest_id, // nested quote
+      ...(retweeted?.rest_id ? [retweeted.rest_id] : []), // retweeted original
     ].filter(Boolean),
     raw: tweet,
   };
@@ -46,43 +46,92 @@ function extractTimeline(obj) {
    * Recursively search for any object containing `.instructions` and return it.
    * This works for:
    * - UserTweets: page.data.user.result.timeline.timeline
-   * - LikesTimeline: page.data.user.result.timeline.timeline  
+   * - LikesTimeline: page.data.user.result.timeline.timeline
    * - TweetDetail: page.data.threaded_conversation_with_injections_v2
    * - bookmark: page.data.bookmark_timeline_v2.timeline
    */
-  if (!obj || typeof obj !== 'object') return null;
-  
+  if (!obj || typeof obj !== "object") return null;
+
   // Check if this object has instructions
   if (obj.instructions && Array.isArray(obj.instructions)) {
     return obj;
   }
-  
+
   // Recursively search in all properties
   for (const value of Object.values(obj)) {
     const result = extractTimeline(value);
     if (result) return result;
   }
-  
+
   return null;
 }
 
 // ───────────── batch‑run state ─────────────
-let scopeQueue   = [];   // e.g. ["tweets","bookmarks",…]
+let scopeQueue = []; // e.g. ["tweets","bookmarks",…]
 let currentScope = null;
-let startParams  = {};   // keeps original maxScrolls etc.
+let startParams = {}; // keeps original maxScrolls etc.
+
+// Remember the initially extracted username so we can still build correct
+// URLs after we navigate away from the profile page (e.g. when we are on
+// /i/bookmarks the first path segment would be "i").
+let savedUsername = null;
 
 function makeUrl(scope, baseUrl) {
+  console.log(
+    `🔧 makeUrl called with scope: "${scope}", baseUrl: "${baseUrl}"`
+  );
+  // Try to extract the first path segment after the domain – this should be
+  // the username when we are on a user page.
   const m = baseUrl.match(/^https:\/\/(?:x|twitter)\.com\/([^\/?#]+)/i);
-  const username = m ? m[1] : null;
-  if (!username) return baseUrl;                        // fallback
+  let extracted = m ? m[1] : null;
 
-  switch (scope) {
-    case "tweets":    return `https://x.com/${username}`;
-    case "replies":   return `https://x.com/${username}/with_replies`;
-    case "likes":     return `https://x.com/${username}/likes`;
-    case "bookmarks": return `https://x.com/i/bookmarks`;
-    default:          return baseUrl;
+  // Some path segments are *not* usernames but reserved Twitter routes.
+  // If we encounter one of those (e.g. "i", "home", …) we will ignore it and
+  // keep using the previously remembered username if we have one.
+  const RESERVED = new Set([
+    "i",
+    "home",
+    "explore",
+    "notifications",
+    "messages",
+    "settings",
+    "search",
+  ]);
+
+  if (extracted && !RESERVED.has(extracted)) {
+    savedUsername = extracted; // keep for later scopes
   }
+
+  const username = savedUsername;
+
+  console.log(`👤 Extracted username: "${extracted}" → using: "${username}"`);
+
+  if (!username) {
+    console.log(`⚠️ No username available, returning baseUrl: "${baseUrl}"`);
+    return baseUrl; // fallback when we really have nothing
+  }
+
+  let resultUrl;
+  switch (scope) {
+    case "tweets":
+      resultUrl = `https://x.com/${username}`;
+      break;
+    case "replies":
+      resultUrl = `https://x.com/${username}/with_replies`;
+      break;
+    case "likes":
+      resultUrl = `https://x.com/${username}/likes`;
+      break;
+    case "bookmarks":
+      resultUrl = `https://x.com/i/bookmarks`;
+      break;
+    default:
+      resultUrl = baseUrl;
+      break;
+  }
+
+  console.log(`🎯 makeUrl result: "${resultUrl}"`);
+  return resultUrl;
 }
 
 async function beginScope(tabId, scope) {
@@ -92,11 +141,17 @@ async function beginScope(tabId, scope) {
   const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
   const targetUrl = makeUrl(scope, tab.url);
 
+  console.log(`📍 Current URL: ${tab.url}`);
+  console.log(`📍 Target URL: ${targetUrl}`);
+  console.log(`🔀 URLs match: ${tab.url === targetUrl}`);
+
   // navigate only if we're not already there
   if (tab.url !== targetUrl) {
+    console.log(`🚀 Navigating to: ${targetUrl}`);
     await browser.tabs.update(tabId, { url: targetUrl });
   } else {
     // ensure full reload so interceptor sees first page
+    console.log(`🔄 Reloading current page: ${tab.url}`);
     browser.tabs.reload(tabId, { bypassCache: true });
   }
 
@@ -106,7 +161,10 @@ async function beginScope(tabId, scope) {
       browser.tabs.onUpdated.removeListener(onUpdated);
       console.log("✅ Page ready – launching scroller");
       browser.tabs
-        .sendMessage(tabId, { cmd: "SCROLL_START", maxScrolls: startParams.maxScrolls })
+        .sendMessage(tabId, {
+          cmd: "SCROLL_START",
+          maxScrolls: startParams.maxScrolls,
+        })
         .catch((err) => console.error("❌ SCROLL_START failed:", err));
     }
   };
@@ -133,26 +191,35 @@ async function download() {
     return;
   }
 
-  // Determine filename based on current page
-  let scope = "bookmarks"; // default
-  try {
-    const [tab] = await browser.tabs.query({
-      active: true,
-      currentWindow: true,
-    });
-    if (tab?.url) {
-      if (/\/likes(?:\/|$|\?)/i.test(tab.url)) {
-        scope = "likes";
-      } else if (/\/i\/bookmarks/i.test(tab.url)) {
-        scope = "bookmarks";
-      } else if (/\/with_replies(?:\/|$|\?)/i.test(tab.url)) {
-        scope = "replies";
-      } else if (/^https:\/\/(twitter|x)\.com\/[^\/?#]+(?:\/?$|\?)/i.test(tab.url)) {
-        scope = "tweets";
+  // Prefer the scope we are currently processing; fall back to URL heuristics
+  let scope = currentScope || "bookmarks"; // default fallback remains "bookmarks"
+
+  // If currentScope is not set (e.g. manual download with no active batch run)
+  if (!currentScope) {
+    try {
+      const [tab] = await browser.tabs.query({
+        active: true,
+        currentWindow: true,
+      });
+      if (tab?.url) {
+        if (/\/likes(?:\/|$|\?)/i.test(tab.url)) {
+          scope = "likes";
+        } else if (/\/i\/bookmarks/i.test(tab.url)) {
+          scope = "bookmarks";
+        } else if (/\/with_replies(?:\/|$|\?)/i.test(tab.url)) {
+          scope = "replies";
+        } else if (
+          /^https:\/\/(twitter|x)\.com\/[^\/?#]+(?:\/?$|\?)/i.test(tab.url)
+        ) {
+          scope = "tweets";
+        }
       }
+    } catch (e) {
+      console.warn(
+        "Could not determine page type from URL, keeping default scope",
+        e
+      );
     }
-  } catch (e) {
-    console.warn("Could not determine page type, using 'bookmarks'", e);
   }
 
   try {
@@ -282,10 +349,10 @@ browser.runtime.onMessage.addListener(async (msg, sender, sendResponse) => {
         tweets.clear();
 
         // remember params & queue
-        scopeQueue   = Array.isArray(msg.scopes) ? [...msg.scopes] : ["tweets"];
-        startParams  = { maxScrolls: msg.maxScrolls };
+        scopeQueue = Array.isArray(msg.scopes) ? [...msg.scopes] : ["tweets"];
+        startParams = { maxScrolls: msg.maxScrolls };
 
-        await beginScope(tabId, scopeQueue.shift());  // kicks off first run
+        await beginScope(tabId, scopeQueue.shift()); // kicks off first run
         sendResponse({ success: true });
         break;
       }
@@ -295,65 +362,126 @@ browser.runtime.onMessage.addListener(async (msg, sender, sendResponse) => {
         try {
           const page = JSON.parse(msg.data);
           console.log("✅ JSON parsed successfully");
-          
+
           const tl = extractTimeline(page);
           if (!tl) {
             console.log("❌ No timeline found in response");
             return sendResponse({ success: false, error: "No timeline found" });
           }
-          console.log("✅ Timeline extracted, instructions:", tl.instructions?.length || 0);
+          console.log(
+            "✅ Timeline extracted, instructions:",
+            tl.instructions?.length || 0
+          );
 
           let added = 0;
+          let processed = 0;
+          let skipped = 0;
+
           for (const instr of tl.instructions ?? []) {
             console.log(`🔍 Processing instruction type: ${instr.type}`);
-            
+
             // Handle cache clearing instruction
-            if (instr.type === 'TimelineClearCache') {
-              console.log("🧹 TimelineClearCache instruction - clearing tweet cache");
+            if (instr.type === "TimelineClearCache") {
+              console.log(
+                "🧹 TimelineClearCache instruction - clearing tweet cache"
+              );
               tweets.clear();
               continue;
             }
-            
-            if (!['TimelineAddEntries','TimelineReplaceEntry','TimelineAddToModule','TimelineTerminateTimeline','TimelinePinEntry']
-                  .includes(instr.type)) continue;
-            
-            const initialEntries = instr.entries
-               ?? (instr.entry ? [instr.entry] : (instr.module?.items ?? []))
-               ?? [];                       // defensively default to empty array
-            
+
+            if (
+              ![
+                "TimelineAddEntries",
+                "TimelineReplaceEntry",
+                "TimelineAddToModule",
+                "TimelineTerminateTimeline",
+                "TimelinePinEntry",
+              ].includes(instr.type)
+            ) {
+              console.log(`⏭️ Skipping instruction type: ${instr.type}`);
+              continue;
+            }
+
+            const root =
+              instr.entries ??
+              (instr.entry ? [instr.entry] : instr.module?.items ?? []) ??
+              []; // defensively default to empty array
+
+            console.log(
+              `📋 Processing ${root.length} entries for instruction: ${instr.type}`
+            );
+
             // Use queue to handle nested modules without iterator issues
-            const queue = [...initialEntries];
-            for (let i = 0; i < queue.length; i++) {
-              const ent = queue[i];
-              
-              // If this entry is a TimelineTimelineModule, add its children to queue
-              if (ent.content?.items?.length) {
+            const queue = [...root]; // breadth‑first walk
+            while (queue.length) {
+              const ent = queue.shift();
+              processed++;
+
+              // 1) wrapper → enqueue its children and move on
+              if (ent?.content?.items?.length) {
+                console.log(
+                  `📦 Found wrapper with ${ent.content.items.length} items, expanding queue`
+                );
                 queue.push(...ent.content.items);
-                continue;                  // nothing else to do for wrapper
+                continue;
+              }
+              if (ent?.item?.items?.length) {
+                console.log(
+                  `📦 Found item wrapper with ${ent.item.items.length} items, expanding queue`
+                );
+                queue.push(...ent.item.items);
+                continue;
               }
 
-              const item = ent.content?.itemContent     // ordinary entry
-                       ?? ent.content?.item?.itemContent; // module child
-              const tw = item?.tweet_results?.result;
+              // Normalize the path to itemContent (gallery-dl approach)
+              // Works for both ent.content.itemContent and ent.item.itemContent
+              const itemContent = (ent.content ?? ent.item)?.itemContent;
+              const tw = itemContent?.tweet_results?.result;
+
+              const entryType =
+                ent.entryId || ent.content?.entryType || "unknown";
+
               if (tw?.__typename === "Tweet") {
                 if (!tweets.has(tw.rest_id)) {
                   tweets.set(tw.rest_id, flatten(tw));
                   added++;
-                  console.log(`✅ Added tweet: ${tw.rest_id}`);
+                  console.log(
+                    `✅ Added tweet: ${tw.rest_id} (from ${entryType})`
+                  );
                 } else {
-                  console.log(`⚠️ Tweet already exists: ${tw.rest_id}`);
+                  console.log(
+                    `⚠️ Tweet already exists: ${tw.rest_id} (from ${entryType})`
+                  );
                 }
               } else {
-                console.debug("❌ No tweet found in entry:", {
-                  entryType: ent.entryId || ent.content?.entryType || "unknown",
-                  contentKeys: Object.keys(ent.content || {}),
-                  itemContent: ent.content?.itemContent,
-                  moduleItemContent: ent.content?.item?.itemContent,
-                  fullEntry: ent
-                });
+                // Only log detailed info for unexpected entry types (not cursors or known structural elements)
+                if (
+                  !entryType.includes("cursor") &&
+                  !entryType.includes("who-to-follow") &&
+                  !entryType.includes("profile-conversation") &&
+                  !entryType.includes("module") &&
+                  itemContent
+                ) {
+                  console.log(
+                    `🔍 Unexpected entry type with itemContent: ${entryType}`,
+                    {
+                      itemContentKeys: Object.keys(itemContent || {}),
+                      tweetResults: itemContent?.tweet_results,
+                      typename: tw?.__typename,
+                    }
+                  );
+                } else if (entryType.includes("cursor")) {
+                  console.log(`📄 Cursor entry: ${entryType}`);
+                } else {
+                  skipped++;
+                  console.log(`⏭️ Skipping structural entry: ${entryType}`);
+                }
               }
             }
           }
+          console.log(
+            `📊 Processing summary: ${processed} entries processed, ${added} tweets added, ${skipped} entries skipped`
+          );
           console.log(`📝 +${added} tweets (total ${tweets.size})`);
           sendResponse({ success: true, added, total: tweets.size });
         } catch (e) {
@@ -369,7 +497,7 @@ browser.runtime.onMessage.addListener(async (msg, sender, sendResponse) => {
 
         // move on or finish
         if (scopeQueue.length) {
-          tweets.clear();                          // wipe previous data
+          tweets.clear(); // wipe previous data
           await beginScope(tabId, scopeQueue.shift());
         } else {
           console.log("🎉 Batch run complete");
@@ -384,7 +512,7 @@ browser.runtime.onMessage.addListener(async (msg, sender, sendResponse) => {
 
         // move on or finish
         if (scopeQueue.length) {
-          tweets.clear();                          // wipe previous data
+          tweets.clear(); // wipe previous data
           await beginScope(tabId, scopeQueue.shift());
         } else {
           console.log("🎉 Batch run complete");

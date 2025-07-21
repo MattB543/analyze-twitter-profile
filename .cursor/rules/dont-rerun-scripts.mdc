@@ -1,0 +1,5 @@
+---
+alwaysApply: true
+---
+
+Don't try to rerun the script after making changes, I'll run it after

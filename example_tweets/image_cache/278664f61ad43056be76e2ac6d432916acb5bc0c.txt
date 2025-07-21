@@ -1,0 +1,1 @@
+A web browser screenshot displays the "BookSlicer" application, accessible at malcolmocean.github.io/bookslicer/, which is introduced with the tagline "Only the context you need." The primary function of the application is to allow users to "Drop your ePub file here or click to select," indicating its purpose is to process or "slice" ePub files to extract relevant information.

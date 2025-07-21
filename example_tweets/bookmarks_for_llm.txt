@@ -1,3 +1,5 @@
+<bookmarks>
+@chrisbarber:
 Resources I Use For Keeping Up With AI Progress as an Outsider (People To Follow!)
 
 @peterwildeford - broad perspective, one of my top recs because of quality * quantity
@@ -6,178 +8,349 @@ Resources I Use For Keeping Up With AI Progress as an Outsider (People To Follow
 
 @BasilHalperin - economics + ai
 
-@zhengdongwang -
+@zhengdongwang - good long form prediction style pieces
+
+@finbarrtimbers - business plus technical takes from someone who is in the weeds
+
+@EpochAIResearch and people like @Jsevillamol, @ansonwhho - close to the data, forecasting, trends
+
+@sudoraohacker - broad takes from someone in the weeds
+
+@karpathy - how to use ai / high level conceptual understandings
+
+@StefanFSchubert - macro, calling out BS, etc
+
+@btibor91 - rumors and covering new unannounced features, more accurate predictions of when things might release
+
+@max_paperclips - technically oriented takes, accessible to someone like me (swe background, no ai research)
+
+@venturetwins @omooretweets - how to use ai media tools
+
+@Dorialexander - macro takes, opinionated
+
+@natolambert - high volume of interesting technical takes
+
+@c_valenzuelab - a window into the future of ai video
+
+@intellectronica - good takes on using ai as a consumer and developer
+
+@Afinetheorem - economics + AI
+
+@sebkrier - economics/policy + AI
+
+@levie - AI from the perspective of a public company CEO
+
+@binarybits - broad macro takes
+
+@sayashk - economics + AI
+
+@levelsio - AI from the perspective of a bootstrapped startup founder building AI businesses
+
+i'm missing people - please tag them!
+
+if twitter is too much information volume for you, then hacker news is pretty good. and if hn is too much volume for you, then news.yc/best is pretty likely to bring up most major things
+
+@dwarkesh_sp - high quality deep dive podcast episodes, maybe check out the one with @tamaybes and @EgeErdil2 plus also the one with Carl Schulman, for two different perspectives
+
+newsletters: the information, semianalysis. i'm also missing newsletters, please tag them!
+
+using the latest ai tools yourself is more important than all of this! then you'll have a true feel for things
 ---
-Amazing to me that this album is more or less entirely its own genre and no one in the last 60 years has ever really tried again. Genuinely singular. https://t.co/TwRuCdkEzq (https://twitter.com/deanwball/status/1944031304909005045/photo/1)
+@deanwball:
+Amazing to me that this album is more or less entirely its own genre and no one in the last 60 years has ever really tried again. Genuinely singular. [image](The album cover displays the key text "VAN MORRISON ASTRAL WEEKS," identifying the artist and album title. The central visual is a photograph of Van Morrison's face, presented as a double exposure overlaid with foliage, framed within a large circle. This image functions as the album art for the music release "Astral Weeks," conveying a contemplative and natural thematic focus by artist Van Morrison.)
 ---
+@VitalikButerin:
 My response to AI 2027:
 
-https://t.co/nzFSFTfeDU (https://vitalik.eth.limo/general/2025/07/10/2027.html)
+https://vitalik.eth.limo/general/2025/07/10/2027.html (My response to AI 2027)
 
-The AI 2027 post is high quality, I encourage people to read it at https://t.co/HIQw6zrbVG (https://ai-2027.com/) 
+The AI 2027 post is high quality, I encourage people to read it at https://ai-2027.com/ (AI 2027 - A research-backed AI scenario forecast.) 
 
-I argue a misaligned AI will not be able to win nearly as easily as the AI 2027 scenario assumes, because it greatly underrates our
+I argue a misaligned AI will not be able to win nearly as easily as the AI 2027 scenario assumes, because it greatly underrates our ability to protect ourselves, especially given the (pretty magical) technologies that the authors admit will be available in 2029 in their scenario.
 ---
+@nickcammarata:
 i have accumulated five hundred fancy meditation psychotechs and they're all less useful than @FU_joehudson's "if you couldn't feel {way you feel} what would you have to feel"
 ---
+@nikolaj2030:
 What should I personally do if AGI timelines are short (&lt;4 years)? Here's a list of advice I commonly give to people thinking about this.
 
 1. Form a concrete plan about what potential positions you want to be in during AGI takeoff, and how you can get there in a couple of years.
 ---
+@dwarkesh_sp:
 What accounts for the surplus of sadism in Russia, which allowed Stalin to enforce collectivization, gulags, and the great terror? Thousands upon thousands of people had to steal grain from starving families or torture confessions out of prisoners they know are innocent.
 
-"We may https://t.co/g0iApzDULZ (https://twitter.com/dwarkesh_sp/status/1943381061305798781/video/1)
+"We may think no one really believed the ideology—that it was too ridiculous, too obviously disproven by life.
+
+But they did believe. And they were young.
+
+You’ve just had World War I: millions dead, the flower of European youth wiped out. For what? Imperialism. Capitalism.
+
+So you tell yourself: that’s evil, and we must overcome it. Let’s build a new world today, not tomorrow. Let’s make my small life world historical.
+
+There are enemies of this project—the bourgeoisie, or people duped into doing their work.
+
+Maybe the person you arrested is innocent.
+
+But some people out there are guilty. You know they’re out there.
+
+And because they hide so well, you have to overcompensate—to make sure you get every last enemy.
+
+You might orchestrate a show trial, pick someone up at random in the night. You might know it’s unjust.
+
+But in your marrow, you believe the cause is just.
+
+And that makes all the difference."
+
+The Stephen Kotkin interview is out now.
 ---
-https://t.co/XiV3no9GNM (https://twitter.com/Lovandfear/status/1941990711710343627/photo/1)
+@Lovandfear:
+[image](This image is a meme designed as a modified Yin and Yang symbol, illustrating various paradoxical and cyclical states related to perceived beginnings and endings. Key text includes "it just is," "it's over," "we're so back," "it never began," "it will never end," "it's so over," and "we're back." The core message explores the constant flux between optimism and pessimism, representing the emotional journey through trends or situations where states like "being back" and "being over" are in perpetual opposition or continuum, often tied to a meta-concept of existence or non-existence. No specific entities like people, products, or organizations are depicted.)
 ---
+Quoted tweet (@eshear):
+A greater theory of system design: what’s wrong with modernity and post-modernity, how to survive the coming avalanche, and how to fix the major problems we are facing.
+
+Part one: Systems are Models. But what’s a Model?
+
+@eshear:
 A greater theory of system design: what’s wrong with modernity and post-modernity, how to survive the coming avalanche, and how to fix the major problems we are facing.
 
 Part two: Modernity as systematic accuracy
 ---
-A greater theory of system design: what’s wrong with modernity and post-modernity, how to survive the coming avalanche, and how to fix the major problems we are facing.
-
-Part one: Systems are Models. But what’s a Model?
+@WhiskeyTuesday:
+too late for post vibecamp but http://officehours.lol is now (as far as I know) up to date for all currently active cities
 ---
-too late for post vibecamp but https://t.co/c7GlplnC25 (http://officehours.lol) is now (as far as I know) up to date for all currently active cities
----
+@catehall:
 I think we're 3-6 months away from a massive anti-AI preference cascade based on catastrophic risk
 
 (I realize lots of people already dislike AI for other reasons)
 ---
+Quoted tweet (@nabeelqu):
+Reading @nayafia’s latest. Incredibly good. [image](A photograph captures a book titled "ANTIMEMETICS: WHY SOME IDEAS RESIST SPREADING" by Nadia Asparouhova, resting on a wooden slatted surface next to an iced coffee and a STABILO BOSS highlighter. The image portrays a relaxed setting for reading or study, with the book's subject focusing on the resistance of ideas to spread.)
+
+@nabeelqu:
 Ok, a few reflections on the book:
 
 1. qntm defines antimemes as self-erasing information, but this book has a different (but related) definition of the concept: antimemes are (a) high-impact and (b) low transmissibility. Roughly, they are "important secrets".
 
-2. The low
+2. The low transmissibility can be because the ideas are dense/difficult to understand (e.g. Moldbug's blog posts), or taboo/socially forbidden, or transient in some way (e.g. daylight savings time annoys people once a year, then we all forget about it example). Thus, these ideas tend to thrive in group chats and small networks of dedicated/passionate people. Eventually, the burst onto the public consciousness, sometimes in disruptive ways. 
+
+3. Original ideas are inherently antimemetic: they're very hard to transmit at first because you don't have the right language to talk about them, and they're easy to forget. This is why so few people have them at all. The most important ideas start as antimemes.
+
+4. Generative small groups are the optimal environment for new ideas to arise and be developed. 
+
+5. Nadia defines "supermemes" as high impact / *high* transmissibility.  Supermemes often present as apocalyptic in some way -- if you don't listen to this, you might literally die. Hence climate change, AI risk, war/nationalism as all cited as example supermemes. The book is very suspicious of supermemes: they suck up everyone's attention and time and result in very little constructive action; they are parasites.
+
+5(a). "Me... [truncated]
 ---
+@GergelyOrosz:
 I don't mean "use this by faking it." Use this by getting this experience ASAP if you want to work in this field.
 
-At your current company: become an "AI engineer!" It's easier than most people think: https://t.co/tx40KJL83S (https://newsletter.pragmaticengineer.com/p/from-software-engineer-to-ai-engineer)
+At your current company: become an "AI engineer!" It's easier than most people think: https://newsletter.pragmaticengineer.com/p/from-software-engineer-to-ai-engineer (From Software Engineer to AI Engineer – with Janvi Kalra - From Coda to OpenAI: How Janvi Kalra taught herself AI engineering, impressed top tech leaders, and built a career at the forefront of responsible AI—plus actionable advice for landing your own AI role.)
 
 Or do it on the side
 
-More inspiration:
+More inspiration:  https://newsletter.pragmaticengineer.com/p/ai-engineering-in-the-real-world (AI Engineering in the real world - by Gergely Orosz - What does AI engineering look like in practice? Hands-on examples and learnings from software engineers turned “AI engineers” at seven companies)... [truncated]
 ---
-Scribble-based forecasting and AI 2027 https://t.co/jVf6jMPR0p (https://twitter.com/dynomight7/status/1939715606804095214/photo/1)
+@dynomight7:
+Scribble-based forecasting and AI 2027 [image](A screenshot of an article titled "Scribble-based forecasting and AI 2027," dated "Jun 2025," discusses the prediction that "true AGI could plausibly arrive as early as 2027," referencing "timelines forecast" and critiques [1, 2, 3]. The core message questions "how much value is the math really contributing" to such forecasts, proposing a satirical "classic method" for forecasting: "1. Think hard. 2. Make up some numbers." The article critiques the rigor of AI predictions while offering a humorous, skeptical take on the forecasting process.)
 ---
-I think using commitment devices is surprisingly underrated. They've made my life much happier and productive. https://t.co/LhpJXI1cGF (https://twitter.com/parconley/status/1940557825446760457/photo/1)
+@parconley:
+I think using commitment devices is surprisingly underrated. They've made my life much happier and productive. [image](An online article titled "How I Outsource My Self-Control," published on July 2, 2025, and subtitled "And how you can too!", focuses on using commitment devices to enhance productivity. The central message emphasizes that skilled application of these underrated tools, such as app blockers and physical separation from phones, significantly boosts productivity despite common critiques. The article provides an in-depth exploration of commitment devices, detailing their types, advocating for balanced usage, and offering personal case studies like "iPhone in lockbox in garage," "Protected mornings," and "Focusmate timeblocking!" It also recommends specific tools like ColdTurkey for website blocking and Focusmate for task completion.)
 ---
-Over the last year, those of us who follow China's AI governance have been carefully watching whether China would establish an AI Safety Institute (AISI) to match those in the UK, US, and globally. That institution has now emerged, and it tells us a lot about the state of debate
+@Scott_R_Singer:
+Over the last year, those of us who follow China's AI governance have been carefully watching whether China would establish an AI Safety Institute (AISI) to match those in the UK, US, and globally. That institution has now emerged, and it tells us a lot about the state of debate on frontier AI risks in China. Some takeaways from our @CarnegieEndow paper with rockstar co-authors @kelmgren and @OliverEGuest
 ---
+@LizkaVaintrob:
 Can we get AI to stabilize the world faster than it disrupts it?
 
 Even as AI poses risks, it’ll provide new tools for navigating those risks. But these tools won't develop themselves (yet!).
 
-In a new 📄, we explore what tools would help most &amp; how to outpace broad AI progress. https://t.co/q6rHZWOEdq (https://twitter.com/LizkaVaintrob/status/1900627093962023388/photo/1)
+In a new 📄, we explore what tools would help most &amp; how to outpace broad AI progress. [image](An infographic features a graph illustrating the future distribution of work, titled "As AI capabilities rise, AI systems will be responsible for a growing fraction of relevant work." The y-axis represents the "Fraction of relevant work via AI systems & humans," ranging from 0 to 1, while the x-axis denotes "Time." The chart depicts a decreasing "Human share" of work and a correspondingly increasing "AI share," leading to a point where "AI may represent a majority of work that matters." The overarching message conveyed is that "Shaping what AI systems (can\) do is among the best ways to steer towards existential security," emphasizing the critical need to guide AI development as it increasingly takes over significant tasks.)
 ---
+@robertwiblin:
 Holy shit these quotes from Congress are absolutely eye-popping:
 
 "...this week lawmakers demonstrated a level of AGI situational awareness that would have been unthinkable just months ago.
 
-•“Whether it’s American AI or Chinese AI, it should not be released until we know it’s
+•“Whether it’s American AI or Chinese AI, it should not be released until we know it’s safe. That's why I'm working on a new bill, the AGI Safety Act, that will require AGI to be aligned with human values and require it to comply with laws that apply to humans. This is just common sense.” — Rep. Raja Krishnamoorthi
+
+• "Mr. Beall, your testimony makes clear that artificial superintelligence, ASI, is one of the largest existential threats that we face right now …. Should we also be concerned that authoritarian states like China or Russia may lose control over their own advanced systems? … And is it possible that a loss of control by any nation-state, including our own, could give rise to an independent AGI or ASI actor that globally we will need to contend with?” — Rep. Jill Tokuda
+
+• “Mr. Beall, you noted at the top that maybe we've become numb to the headlines about all of the dangers of AI. I think that might be true. And yet, honestly, what we've heard today, I suspect, has scared the hell out of many of these committee members. Anybody who doesn't feel urgency around this issue is not paying attention.” — Rep. Dusty Johnson
+
+Rep. Neal Dunn, meanwhile, brought up the recent Claude-blackmailing-its-developers experiment. Rep. Nathaniel Moran asked about the risks of automated AI R&D. Rep. Ro Khanna brought up the importance of third-party verification of safety standards, and Rep. Seth Moulton proposed a “Geneva Conventions-like agreement that has a chance, at least, at limiting what our adversaries might do with AI at the extremes.”
+
+These are the kinds of questions asked by people who seem to actually understand the technology and appreciate its impacts. And while the hearing was unsurprisingly focused on “beat China”, there was a substantive focus on safety concerns, too.
+
+The shift extends beyond the CCP Committee. Pete Buttigieg wrote this week that “we are still underreacting on AI,” noting both the “obviously enormous” “physically dangerous or potentially nefarious effects of these technologies,” as well as the potential effects on wealth, jobs, and democracy.
+
+“The terms of what it is like to be a human are about to change in ways that rival the transformations of the Enlightenment or the Industrial Revolution, only much more quickly,” Buttigieg wrote.
+
+In many ways, it echoes Sen. Chris Murphy’s piece from last week — as well as a recent piece from Axios founders Jim VandeHei and Mike Allen.
+
+We’ve been here before, most notably in spring 2023. But this time feels different: more grounded, more action-oriented, and more durable.
+
+That might just be wishful thinking on my part. Congress does seem poised to pursue a decade-long moratorium on state-level AI regulation (more on that shortly) — a move that certainly does not reflect situational awareness.
+
+But I’m cautiously optimistic that the US — and world’s — decisionmakers might finally be rising to the immense challenge that faces them. The question now is whether they can act quickly enough."
+
+Link below
 ---
-@gbrl_dick Pro tip for fellow males: hold the baby close against your chest (put your hand on their head and gently hold against you), slowly rock back and forth while incorporating a slight up and down motion, and hum quietly where you can feel the vibration on your chest where the babies
+@TurnerNovak:
+Pro tip for fellow males: hold the baby close against your chest (put your hand on their head and gently hold against you), slowly rock back and forth while incorporating a slight up and down motion, and hum quietly where you can feel the vibration on your chest where the babies head is.
+
+Takes some practice but gets them to quickly calm down and fall asleep unless something is really wrong.
 ---
+@Duderichy:
 I’m still sad they never made a S2 of Altered Carbon
 ---
+@eli_lifland:
 Since AI 2027 people have often asked us what they can do to make AGI go well. I've just published a blog post covering:
 (a) What a prepared world would look like
 (b) Learning recommendations to get up to speed
-(c) High-impact jobs and non-professional activities https://t.co/uHkw2mPVJf (https://twitter.com/eli_lifland/status/1939020164676362424/photo/1)
+(c) High-impact jobs and non-professional activities [image](A screenshot of an online article titled "What you can do about AI 2027," authored by Eli Lifland and published on June 28, 2025, discusses how to steer toward a positive Artificial General Intelligence (AGI\) future. The article warns of a potential scenario where humanity loses control of its destiny by 2027 and faces extinction by 2030, posing the question of how to avoid this outcome. It emphasizes the need to "Act with urgency but not certainty," stating that AGI in 2027 is a plausible outcome and society may only have two years left before its fate is sealed, while advising against extreme uncooperative actions due to the uncertainty of AGI timelines, which the author's team's median range from 2028 to 2032, and suggests that AI progress may slow down in the 2030s, encouraging preparation to contribute if AGI arrives post-2027.)
 ---
+Quoted tweet (@eli_lifland):
+There are many ways to use one's career to help AGI go better, here we list some of the top ones. https://t.co/9NoffZOh0A
+
+@thlarsen:
 I agree with Eli that these are important areas. But IMO the most important jobs in the world probably aren't on this list, instead, they are things like:
 - Starting a new org to fill a huge whole in the AI safety ecosystem.    
-- Getting a job that could impact the overall USG
+- Getting a job that could impact the overall USG AI strategy (e.g. at the OSTP).
 ---
+@JeremiahDJohns:
 One of my all-time favorite type of videos is pre-fame bands playing their extremely famous songs to a tiny room of people, because they're not yet known.
 
 A thread of some examples:
 
 Bastille playing Pompeii in what looks like someone's living room:
 
-https://t.co/aYd0Nq4Fyf (https://x.com/gingermilke/status/1303383520220340226/video/1)
+[image](The image captures a live musical performance, prominently featuring "Sofar" branding, likely indicating a "Sofar Sounds" event. It's a photograph of a band performing in an intimate indoor setting for a seated audience, with a vocalist, a guitarist, a drummer, and a keyboardist actively playing their instruments. The core event is a live concert providing a close-up experience for the attendees.)
 ---
+@nearcyan:
 @rocketalignment i dont understand why this is always a big thing, the tokens a model output have never been the same thing as what the model is actually thinking and this has been true for many years
 ---
+@AndrewCritchPhD:
 Interested in how AI-accelerated tech can/will work?  Read this:
-https://t.co/1BbINwEPVR (https://www.lesswrong.com/posts/Na2CBmNY7otypEmto/the-industrial-explosion)
+https://www.lesswrong.com/posts/Na2CBmNY7otypEmto/the-industrial-explosion (The Industrial Explosion — LessWrong - What happens to industrial capabilities when AI automates labour?)
 
 (I think it's been ~10 years since LessWrong had a steady source of well-reasoned content like this.  More please!)
 ---
-New post: Why Aren't LLMs General Intelligence Yet?
+Quoted tweet (@AlexFinnX):
+I’m being 100% serious:
 
-Link below. https://t.co/S8YuaTnXu4 (https://twitter.com/jd_pressman/status/1937778950195105989/photo/1)
----
+Your only goal the next 3 years is to not die
+
+We are about to enter the greatest age in human history
+
+AGI. Going to mars. Reverse aging. Humanoid robots. Self driving cars.
+
+We are about to enter the first golden age of our lifetimes. We are about to
+
+Quoted tweet (@teortaxesTex):
 btw I've started having doubts about near-term transformative AGI. Timelines up to 2035 or 2040 seem plausible (my mainline scenario is ≤2028 still).
 
-We have scant theory of human scientific genius and near zero reliable data on its inner operation. «A genius is just a https://t.co/aHFcjlVguy (https://twitter.com/teortaxesTex/status/1848103571310747978/photo/1)
+We have scant theory of human scientific genius and near zero reliable data on its inner operation. «A genius is just a scaled-up error-corrected human… with extra obsession», perhaps. Something something MCTS, neural noise, branching factor, iterative algorithms; there's no space in the genome for occasionally rolling a superior subspecies with very different mechanics and inductive biases; of course. But is even a properly trained LLM a scaled-anything human, or just an error-corrected interpolation of human reflections? What is the scaling law for the latter towards the genius?
+And our attempts at making genius obsolete with scale and error-correction procedures have been, I believe, floundering since 1950s-70s; we're coasting on applied science and providing opportunities to geniuses which we do discover in a frenetically expanded talent pool. All papers I've seen about LLMs exceeding humans in "creativity", proving complex theorems or whatnot, discovering this compound or that architecture – have been meh upon scrutiny.
+
+Scaling test time compute allows to approximate ever better the flawless work of a mediocre mind that is content to terminate itself in rabbitholes. We are not used to mediocre minds working flawlessly, as in flesh all faults tend to be conjoined. But flawless mediocrity is not genius. Since 2014 I've been... [truncated]
+
+@jd_pressman:
+New post: Why Aren't LLMs General Intelligence Yet?
+
+Link below. [image](A screenshot of an article by John David Pressman, dated 2025-06-24, titled "Why Aren't LLMs General Intelligence Yet?". The article poses why large language models, despite excelling at "predict the next item in the sequence," lack the "act so as to profit from experience" aspect of intelligence central to Legg and Hutter's Universal Intelligence, questioning if "perfecting prediction of the next token just gets you an ever more brightly polished mediocre mind?" It identifies three main bottlenecks preventing LLM agents from achieving general intelligence: "General Action Space," which the author argues is not the issue, citing frameworks like Tan et al's Cradle and tools like Voyager, Cradle, SmolAgents, and Weave-Agent; "Lifetime Learning/Test Time Training/Corpus Expansion/etc," suggested as a likely bottleneck due to the lack of consensus on methods like Self Adapting Language Models or those used by Google Gemini models; and "Short, Medium and Long Term Memory," which details challenges with managing context windows and retrieval-augmented generation (RAG\).)... [truncated]
 ---
+@StatisticUrban:
 Fun fact: the average American buying a house today does not pay that much more than the Boomers did in the 1980s.
 
-About a 29% increase - bad, certainly, but I bet most people think it's double or triple. https://t.co/TMdona90xX (https://twitter.com/StatisticUrban/status/1937675625025634329/photo/1)
+About a 29% increase - bad, certainly, but I bet most people think it's double or triple. [image](A line graph titled "Price Per Square Foot New Single Home - United States 1978 - 2023" presents the inflation-adjusted price per square foot of new single homes in the U.S. from 1978 to 2023, sourced from the U.S. Census Bureau. The core message indicates historical fluctuations, with prices peaking in the late 1980s and mid-2000s before declining, notably around 2009-2011. The most significant trend shows a sharp increase in price per square foot from approximately 2013, reaching its highest point around 2021, followed by a slight decrease in 2023.)
 ---
-@visakanv Two master classes on that principle https://t.co/HMtynJ0Hpr (https://twitter.com/seconds_0/status/1937009665403236586/photo/1)
+@seconds_0:
+@visakanv Two master classes on that principle [image](The book cover titled "Get Your House Right" with the subtitle "Architectural Elements to Use & Avoid" is by authors Marianne Cusato and Ben Pentreath, with Richard Sammons & Leon Krier, and features a foreword by H.R.H. The Prince of Wales. The central message of this architectural guide is to provide insight into correct and incorrect elements for house design, as suggested by the title's emphasis on what to "Use & Avoid.")
 ---
-there are random tiktok artists out there with more soul than half the platform combined. The best justify all the rest. Move!! Is one of my favorites https://t.co/pjhIHDRqcl (https://twitter.com/PrinceVogel/status/1936678993476149289/video/1)
+@PrinceVogel:
+there are random tiktok artists out there with more soul than half the platform combined. The best justify all the rest. Move!! Is one of my favorites [image](Key text includes the TikTok logo and username "@moveorgo." This is a pixel art illustration featuring a stylized character with white and light blue hair, seated at a desk with two computer monitors, seemingly engaged in a digital activity like working or gaming. The main takeaway is a depiction of a person interacting with computers, presented in a retro or digital art style, associated with the TikTok platform.)
 ---
+@forethought_org:
 New podcast episode with @tobyordoxford — on inference scaling, time horizons for AI agents, lessons from scientific moratoria, and more.
+---
+@bantg:
+guys? [image](A photograph captures a person wearing headphones engaged in live coding for music production. The on-screen code defines various sound elements and their parameters: `bassnotes` are picked from `<0 1 2 1>/4`, a `supersaw:0.0.1` waveform is distorted, and `DRUMS` are stacked from `RolandTR909`, `RolandTR808`, and `KorgMinipops` banks. `VOCALS` are sourced from a `cycles` sample, set to note `c2`, while `BASS` utilizes the `bassnotes` with the `supersaw` waveform, featuring `detune(.5\)`, `unison(4\)`, and specific `decay`, `release`, `sustain`, and `gain` values. Visual `_punchcard` elements indicate programmed musical patterns, highlighting the use of code to generate complex audio.)
+---
+Quoted tweet (@tokenbender):
+my workflow to get the best out of claude code is complete now.
 
-https://t.co/54UWw0rUED (https://pnc.st/s/forecast/53bb1b94/inference-scaling-ai-agents-and-moratoria-with-toby-ord-)
+@tokenbender:
+how i bring the best out of claude code? [image](A screenshot of a digital article or blog post, dated June 15, 2025, is titled "how i bring the best out of claude code - part 1" and focuses on "1. setup requirements." The text advises users to prepare a set of requirements, ideally as issues in a repo, which can be downloaded into an `issues/` folder or integrated via GitHub with Claude code, then saved as `<issue_no>.md` files. A note within the text emphasizes that the requirements list is "very crucial" and should be treated "like a wish list for work to be done." The article further states that vague descriptions lead to undesired outcomes, recommending instructions be "as unambiguous as a program," and also suggests being aware of what the Claude model already knows.)... [truncated]
 ---
-guys? https://t.co/MVc93ZJaUJ (https://twitter.com/bantg/status/1933967436459503662/video/1)
----
-how i bring the best out of claude code? https://t.co/u9OY8CR8qK (https://twitter.com/tokenbender/status/1934304411683324170/photo/1)
----
+@peterwildeford:
 Israel just struck Iran's nuclear facilities with 200 aircraft and 330+ munitions. But they haven't stopped Iran's nuclear program yet.
 
 What's going on? And what's going to happen next?
 
-Read the article or get my thread https://t.co/4MqtAOCtNu (https://twitter.com/peterwildeford/status/1933709793006662124/photo/1)
+Read the article or get my thread [image](A promotional image for an article from PETERWILDEFOR.SUBSTACK.COM titled "The Fordow Paradox: Where do Iran and Israel go from here?" features the subtitle "How one stubborn mountain shows nuclear non-proliferation is on life support." The image is a photograph of a cityscape at night with multiple bright streaks of light across the sky, evocative of missile trails or air defense, reinforcing the urgent theme of nuclear tensions and the precarious state of non-proliferation involving Iran and Israel.)
 ---
+@omarsar0:
 Anthropic is killing it with these technical posts. 
 
 If you're an AI dev, stop what you are doing and go read this.
 
 It shows, in great detail, how to implement an effective multi-agent research system.
 
-Pay attention to these key parts: https://t.co/NRi6Xgah63 (https://twitter.com/omarsar0/status/1933941545675206936/photo/1)
+Pay attention to these key parts: [image](The "High-level Architecture of Advanced Research" diagram illustrates a multi-agent research system designed to fulfill complex user requests from a "Claude.ai chat" interface. A "User request" for a detailed list of at least 100 US companies working on AI agents in 2025, including specifics like products, descriptions, agent types, and industry verticals, is processed by a "Lead agent (orchestrator\)". This orchestrator utilizes various tools, including search capabilities, memory access, and the ability to manage other subagents to complete the task. It interacts with specialized "Citations subagent" and multiple "Search subagent" components, as well as a central "Memory" store, to gather and synthesize information before delivering a comprehensive "Final report". The core message demonstrates a sophisticated AI workflow where a central agent delegates and coordinates tasks among specialized subagents to address intricate research queries.)
 ---
+@rohitarorayyc:
 We automated systematic reviews using gpt-4.1 and o3-mini !
 
 Our platform (otto-SR) beat humans at all tasks and conducted 12 years of systematic review research in just two days.
 
-We also show how otto-SR can be used in the real world to rapidly update clinical guidelines 🧵 https://t.co/oEMpf3WvWj (https://twitter.com/rohitarorayyc/status/1933641750754558238/photo/1)
+We also show how otto-SR can be used in the real world to rapidly update clinical guidelines 🧵 [image](A comparative process diagram illustrates two workflows for systematic review, from "Search" to "Analysis": a "Human" process and an "otto-SR" process. The "Human" workflow involves "Reviewer 1," "Reviewer 2," and "Reviewer 3" for "Abstract Screening," "Full-text Screening," and "Data Extraction," with multiple stages of review and conflict resolution. In contrast, the "otto-SR" workflow automates these steps using "LLM" (Large Language Models\), specifically "gpt-4.1" for screening based on "Study objective," "Inclusion criteria," and "Exclusion criteria," and then "o3-mini" for "Data Extraction" using "Study objective," "Variable names," and "Variable descriptions," significantly streamlining the overall systematic review process.)
 ---
+@eshear:
 This is an incredibly good dive into how LLMs work, and how their subjectivity functions.
-https://t.co/uIRQDX4G8g (https://nostalgebraist.tumblr.com/post/785766737747574784/the-void)
 ---
+@anderssandberg:
 One of the coolest projects of @AIObjectives is Talk to the City. Can we use AI to elicit people's preferences and views at scale, in order to align decision-makers with the interests of the population?
 ---
+@PhilippSpiess:
 Wrote about my learnings from using Claude Code (and coding agents in general) quite extensively for a month. 
 
-I'm curious if some of you have made similar experiences and know some additional tricks? https://t.co/ElyfBeAm8x (https://twitter.com/PhilippSpiess/status/1932923113995432242/photo/1)
+I'm curious if some of you have made similar experiences and know some additional tricks? [image](A screenshot of an article from spiess.dev, titled "How I Use Claude Code" and dated June 11, 2025, describes the author's shift to using AI agents, specifically Claude Code, as a primary tool. Since subscribing to Claude Max's flat pricing, the author's usage has dramatically increased, making it a "daily driver" and significantly reducing their reliance on VS Code, with the intent to share observed usage patterns.)
 ---
+@rootsofprogress:
 We're seeking to commission stories for a new article series, “Intelligence Age,” on future applications of AI
 
 We are looking for stories in the ballpark of 3,000 words, and will pay $2/word
 
-Details and application below! https://t.co/dFMD89mq2s (https://twitter.com/rootsofprogress/status/1931031449614119123/photo/1)
+Details and application below! [image](A digital painting or illustration depicts a mid-century modern-style office environment populated by multiple human workers and a prominent bipedal robot. The central event shows the robot standing at a desk, seemingly engaged in work alongside humans who are seated at various workstations, some using computer monitors. The core message conveys the integration of robotic entities into traditional human workspaces, highlighting a scenario of humans and advanced technology coexisting in a professional setting.)
 ---
+@reasonisfun:
 This video by @FU_joehudson is a work of art.
 
-It has wildly good PCK, too. https://t.co/41s06aFuyi (https://twitter.com/reasonisfun/status/1928511456829452511/photo/1)
+It has wildly good PCK, too. [image](A YouTube video listing features the title "How To Be A Better Doomscroller Than 99% Of Social Media Addicts," indicating a focus on social media consumption and addiction, potentially with an ironic or satirical take. The video, 6:48 in duration, was posted 57 minutes ago and has 397 views. The accompanying thumbnail visually reinforces the theme of time lost to social media, showing a younger man absorbed in his phone with an hourglass superimposed on his head, symbolizing time draining, while an older man also engages with a mobile device.)
 ---
+Quoted tweet (@jayendra_ram):
+Over the last few months, the team at @hud_evals has made a lot of evals and environments. When we first started, we ran into a lot of problems:
+
+1) Hosting CUA evals is annoying
+2) Creating RL environments and problems is hard
+3) Reviewing trajectories was super tedious
+4) There https://t.co/qDYbCj7woV
+
+@menhguin:
 casual plug that @hud_evals evaluates whether AI agents can actually do various tasks
-https://t.co/5pSimWVDiz (https://x.com/jayendra_ram/status/1927477447265558610)
 ---
-0.0 https://t.co/nWTHC0FAJ5 (https://twitter.com/divya_venn/status/1927975391412502822/photo/1)
+@divya_venn:
+0.0 [image](A screenshot of an article details the "Dartmouth Scar Experiment," where subjects, believing they had facial scars from makeup, reported experiencing discrimination and disdain, despite researchers having secretly removed the non-existent scars. This experiment demonstrates how individuals' own expectations and beliefs profoundly shape their perceived reality and interactions, a phenomenon known as "predictive processing," with further examples provided in Andy Clark's book, *The Experience Machine: How Our Minds Predict and Shape Reality*.)
 ---
+@FU_joehudson:
 Knowledge used to set you apart. Accumulating skills, developing expertise, and mastering frameworks got you ahead.
 
 But with the advent of AI, all that is changing. I wrote about the 3 top skills to invest in to prepare for the coming era. 
 
-Full thesis out today, with @every: https://t.co/THCuQDWUgm (https://twitter.com/FU_joehudson/status/1928145997001023609/photo/1)
+Full thesis out today, with @every: [image](The article, titled "Knowledge work is dying—welcome to the age of wisdom work," argues that AI models will render traditional knowledge-based professions obsolete by outperforming human experts in fields like physics, law, and engineering. It asserts that facts, skills, and expertise will become increasingly commoditized and replaceable, impacting over 1 billion knowledge workers such as lawyers, engineers, consultants, and programmers. The core message is that society, currently built on the premise of knowledge as a scarce resource, must adapt to an age where pure knowledge is as unnecessary as building a fire in a modern world with existing utilities like light bulbs and central heating.)
 ---
+@awdii_:
 I used AI to build a knowledge graph of every @dwarkesh_sp episode!  🚀
 
 Scrape thousands of hours of youtube content
@@ -186,20 +359,39 @@ Generate articles with timestamps &amp; backlinks
 
 100% Open Source 👾
 
-Introducing TubeGraph, a tool for visualizing connections across a YT channel! 🧠 https://t.co/49d7c9jqRF (https://twitter.com/awdii_/status/1927809597923795121/video/1)
+Introducing TubeGraph, a tool for visualizing connections across a YT channel! 🧠 [image](A screenshot of the Tubegraph web application, accessible at tubegraph.vercel.app, promotes its primary function: "Build a Knowledge Graph of Any Youtube Channel." The core message emphasizes exploring concepts, discovering connections, and thinking deeper, with example channels like Dwarkesh Podcast, Huberman Lab, and Lex Fridman showcased. The interface features input fields for adding a channel username, specifying video sorting by views, and setting a minimum video duration before generating a graph, with a section for "Graph View" indicated below and options to "CONTRIBUTE" or "EXPLORE CHANNELS." The application's logo, "Sieve," is visible in the top left.)
 ---
+@dwarkesh_sp:
 Has someone come up with a great prompt for socratic tutoring? 
 
 Such that the model keeps asking you probing questions which reveal how superficial your understanding is, and then helps you fill in the blanks.
 ---
+@gtdad:
 .@erikphoel on his 3yo reading like a 9yo.
 
 Similar to our experience. Though we are about 1 year later than he is. And instead of phonics tutoring we did classical Montessori—materially different, but also very structured.
 
-And similar outcomes. Our 5yo reads like a ~10yo. https://t.co/KlNynVCABs (https://twitter.com/gtdad/status/1927741673037050078/photo/1)
+And similar outcomes. Our 5yo reads like a ~10yo. [image](The image is a screenshot of an article or blog post discussing the humorous "burning scientific question": "Can a three-year-old read The Hobbit?" The text states that the answer is "yeah, pretty much," introducing "Roman reading from Chapter 1." The core message is that a three-year-old, Roman, is capable of reading J.R.R. Tolkien's *The Hobbit*, as demonstrated by a direct quote of the book's opening lines: "In a hole, in the ground, there lived a hobbit. Not a nasty, dirty, wet hole, filled with the ends of worms and an oozy smell, nor yet a dry bare, sandy, hole, with nothing in it to sit down on or to eat: it was a hobbit-hole, and that means comfort.")
 ---
-*Slavoj Zizek sniffs loudly touching his nose* Ah yes yes the corporate pastoral. This is a perfect ideological object. You see, you see here Sam, he pretends to give us a modest, one could say intimate conversation between two friends. No. This is a mythopoetic act of
+Quoted tweet (unavailable):
+[Quoted tweet 1925235156157440438 not available]
+
+@sterlingcrispin:
+*Slavoj Zizek sniffs loudly touching his nose* Ah yes yes the corporate pastoral. This is a perfect ideological object. You see, you see here Sam, he pretends to give us a modest, one could say intimate conversation between two friends. No. This is a mythopoetic act of ideological laundering. *Sniff* 
+
+This is not, you see, this is not a product announcement. No. Sam is giving us a myth, you see. *Sniff* This film, if one can call such a thing a film, is a strategic myth making artefact to construct an origin story. This is a biopic about themselves played by themselves, you see. Masturbation. *Sniff* The hubris is astounding. *Sniff*
+
+This opens, what do we see, what do we see first? *Sniff* We see the power shot, the money shot yes? Looking up from the ground up into the towering city. We are small. Silicon Valley is big. Money you see, technology, forbidden sex, and so on. San Francisco to be precise. Yes? *Sniff* 
+
+Then what? Soft lighting, yes, soft focus, flowers in the city and so on. Two friends. No. *Sniff*
+
+These are not two friends. These are the ideologues of techno capital, you see. *Sniff*. The priests preparing you for the sacrament of their new device. *Sniff*
+
+They smile, you see, "We know we are building godlike machines, but we are such nice people!" *Sniff* Yes very good Sam. And thank you. They shake our hands and smile, while the machine, you see, the machine takes our jobs and our soul, or what have you. *Sniff*
+
+Yes? But the cafe, what a nice cafe I mu... [truncated]
 ---
+@parconley:
 i put together a massive directory of travel resoucres
 
 :: general tips &amp; philosophies ::
@@ -207,20 +399,24 @@ i put together a massive directory of travel resoucres
 :: types of travel (road, air, bike, retreat) ::
 :: place-specific guides ::
 
-check it out! if you have any other resources, i'd love recs! https://t.co/hLz2sCLrMQ (https://twitter.com/parconley/status/1927482206030618696/photo/1)
+check it out! if you have any other resources, i'd love recs! [image](Screenshot of an online article titled "Directory of Travel Resources," published on May 27, 2025. The author, a 22-year-old computer science student from Arizona with limited travel experience and an SF/rationalist intellectual context, presents a compilation of travel advice. They note that the listed resources were "haphazardly collected" and claim them to be "more believable than an average LLM" or search engine, despite nearly all descriptions being "LLM-written" but "spot-checked" for >90% accuracy. The article invites readers to provide "high-quality resource recommendations" and features a "Table of Contents" on the right, listing categories such as "Travel Advice," "General Tips & Philosophies," "Packing Strategies," "Modalities & Styles of Travel," "Road & Air," "Walk and Talk," "Offsites," "Bicycle Touring," "Relocation / Moving Cities," "Meditation Retreats," and "Place-Specific Travel Guides" for various regions like Antarctica, Argentina, Australia & New Zealand, Austria, Bangalore, Belgium & Holland, Bhutan, Boston, Brazil, and California (state-wide\). The first resource listed is "50 Years of Travel Tips" by Kevin Kelly, described as practical advice on logistics, gear, and mindset.)
 ---
-referring to AI models as "just math" or "matrix multiplication" is as uselessly reductive as referring to tigers as "just biology" or "biochemical reactions" https://t.co/CHOrNSoMx3 (https://twitter.com/nearcyan/status/1927435714809012435/photo/1)
+@nearcyan:
+referring to AI models as "just math" or "matrix multiplication" is as uselessly reductive as referring to tigers as "just biology" or "biochemical reactions" [image](The image presents a WikiHow-style instructional guide titled "Surviving an Actual Tiger Attack," with "Method 1" emphasizing, "Remember that tigers are simply made up of atoms and various biochemical reactions." The accompanying illustration shows a man confronting a tiger, his thought bubble stating, "It's just a bunch of atoms and biochemical reactions..." The core message offers humorous and absurd advice to mitigate fear during a tiger attack by intellectually reframing the tiger as a collection of atoms and biochemical processes, including the Krebs cycle, and viewing being eaten as merely a rearrangement of one's own atoms.)
 ---
+@deepfates:
 Okay, I'm collecting near term AI projection essays - the serious ones, With relatively concrete predictions. off the top of my hand: Situational awareness, AI 2027, Intelligence curse, Machines of love and grace. What am I missing?
 ---
+@slow_developer:
 "if AI doesn’t scare you, you’re not paying attention"
 
 Tyler Cowen says AI isn’t a far-off idea; it’s coming fast and will reshape many careers
 
 for those in law, medicine, or economics, the choice is simple:
 - work with it and adapt
-- compete against it and likely lose https://t.co/kpmZieuwDu (https://twitter.com/slow_developer/status/1927039708619481432/video/1)
+- compete against it and likely lose
 ---
+@SpencrGreenberg:
 Three ways we face problems:
 
 1️⃣ Change: alter the world, situation, or yourself to make things better
@@ -231,89 +427,161 @@ Three ways we face problems:
 
 It's easy to fall into 🙈, but we should aspire to swap 🙈 with 1️⃣ and 2️⃣.
 ---
-i've gotten so much mileage out of the emotions wheel. crazy how much more i notice feeling when i have language to name it https://t.co/v3dPSzMF5V (https://twitter.com/booritney/status/1925973755316113594/photo/1)
+@booritney:
+i've gotten so much mileage out of the emotions wheel. crazy how much more i notice feeling when i have language to name it [image](This infographic presents an emotion wheel, systematically categorizing human feelings. At its core, the wheel identifies primary emotions such as Happy, Sad, Angry, Fearful, Bad, Surprised, and Disgusted. These central feelings then radiate outwards into increasingly specific and nuanced emotional states, such as "Joyful," "Inspired," "Lonely," "Guilty," "Frustrated," "Betrayed," and "Astonished," among many others. The image's core message is to provide a comprehensive hierarchical framework for understanding and identifying the vast spectrum of human emotions.)
 ---
-Friends asked me to comment on https://t.co/PoCp9vRXTc, (ERROR: 404 Client Error: Not Found for url: https://t.co/PoCp9vRXTc,) so…
+@AndrewCritchPhD:
+Friends asked me to comment on http://ai-2027.com (AI 2027 - A research-backed AI scenario forecast.), so…
 
 Key points: It is excellent, and extremely *not* sci-fi. A highly realistic psychodrama unfolds between AI developers and several AI systems, and the technical details are all too plausible to feel like fiction.
 1/🧵
 ---
-I recently gave a talk at Anthropic on automating alignment research, covering the content from my (just released) essay on the topic. Video here and on youtube, link to transcript in thread. https://t.co/TLXSKkZmPW (https://twitter.com/jkcarlsmith/status/1917675683045859816/video/1)
+Quoted tweet (@jkcarlsmith):
+Automating alignment research is crucially important to AI safety. I wrote an essay about the ways we might fail, and about what it takes to succeed. Link and summary in thread. https://t.co/eufS2vtWK5
+
+@jkcarlsmith:
+I recently gave a talk at Anthropic on automating alignment research, covering the content from my (just released) essay on the topic. Video here and on youtube, link to transcript in thread. [image](A photograph captures a meeting room setup featuring two large displays: one shows a video conference at 3:33 PM with participants including Devi Borg and Ansh Radhakrishnan, and the other prominently displays a presentation slide titled "Can we safely automate alignment research?" This presentation is attributed to Joe Carlsmith and is noted as a "Talk at Anthropic, April 2025," with a "Recording" indicator visible. The image conveys a professional discussion or preview event centered on the critical topic of automating artificial intelligence alignment research.)... [truncated]
 ---
-Finished the blog post, link below https://t.co/muGiRTPi5s (https://twitter.com/AndyMasley/status/1878932416699740574/photo/1)
+@AndyMasley:
+Finished the blog post, link below [image](An infographic displaying a bar chart titled "CO2 avoided by selected personal lifestyle decisions" is prominently overlaid with the message: "Individual AI use is not bad for the environment And a plea to think seriously about climate change without getting distracted." The chart compares CO2 reduction from actions such as switching to an electric car, buying green electricity, or adopting a plant-based diet, distinguishing between impacts "Not accounting for policy" and "Accounting for policy." Significantly, the chart includes "Ask ChatGPT 50,000 fewer times" as a lifestyle decision, which shows a minimal CO2 avoidance compared to other listed actions like switching to an electric car or adopting a plant-based diet, thereby underscoring the overlay text's central argument. The content is attributed to ANDYMASLEY.SUBSTACK.COM.)
 ---
+@hermittoday:
 one great way to use LLMs for self discovery is to pick something you really vibe with and inquire into what precisely it is about this thing that makes you come alive. once you get to the essence, you ask the model to produce examples of other things sharing the same essence
 ---
+@ExaAILabs:
 Get massive datasets from the web
 
 Websets can now find 50k+ results of whatever you're looking for, updated weekly with fresh data
 
-Link below 👇 https://t.co/zCkFnKKDVj (https://twitter.com/ExaAILabs/status/1922005428096913425/photo/1)
+Link below 👇 [image](The Websets website homepage features the prominent headline "Get massive datasets from the web — with any fields you want", explaining that users can "Create a dataset with tens of thousands of results and any fields you want: emails, valuations, industries, or anything else you can think of." The site offers datasets categorized for Sales, Recruiting, and Market Research, showcasing specific examples such as "Every engineer in San Francisco" (over 23k results\), "Every AI startup, globally" (over 4k results\), and "All sales people in the USA" (over 2.1M results\), highlighting the availability of rich profile and company data.)
 ---
+@nickcammarata:
 I think “being yourself” is good advice, but not bc your current self is good but bc unresisted flow has the cleanest gradients, you want to learn from the truth of whatever the system naturally is now. you be yourself so you can learn to become the kind of self that is good
 ---
+@gunsnrosesgirl3:
 These circles are not moving nor changing size or shape
 
- https://t.co/pVYkTfIPEm (https://x.com/EvanKirstel/status/1586375583163772929/video/1)
+ [image](The image is an optical illusion, featuring two stationary, colorful rings, each with a series of circular cutouts and a central arrow. The left ring contains a right-pointing arrow (→\), while the right ring displays a left-pointing arrow (←\). This visual puzzle demonstrates an optical phenomenon where the static rings appear to rotate in the direction indicated by their respective central arrows when viewed in a specific manner, illustrating principles of visual motion perception.)
 ---
+@AnthonyNAguirre:
 Keep the Future Human makes a simple argument: we should build controllable AI tools that complement and empower people, not uncontrollable AGI and superintelligence to replace humans.
-The vast majority of people would agree. And yet this is not what is happening: some of the
+The vast majority of people would agree. And yet this is not what is happening: some of the most powerful companies on Earth are racing to build autonomous, general, smarter-than-human machines.
+This is not inevitable, but it is happening. Key people, bolstered by popular sentiment and clear understanding of the stakes, will need to take decisive action if we are to change paths.  Find out more at
 ---
-Whoa cool https://t.co/7RSILw2jV9 (https://twitter.com/deepfates/status/1920599826879951191/photo/1)
+@deepfates:
+Whoa cool [image](This image is a table of contents from a publication titled "CRITICAL MEME READER," listing academic articles about internet memes. Key texts include article titles, authors, and page numbers, such as "Making poetry babies in an online world" by Laurence Scherz (p. 101\), “‘The Disturbingly Humanoid Face of the Lamb of God Has Shocked Many’: Visual Strategies in Internet Memes on the Restoration of the Ghent Altarpiece" by Martin Haßen (p. 118\), "Ibiza Austrian Memes: Reflections on Reclaiming Political Discourse through Memes" by Anahita Neghabat (p. 130\), and "Dear Mr.BoneSaw your face smells like a chicken shawarma: A Clapback to Saudi Arabia’s Electronic Army" by Saeeda Saeed (p. 143\). Further sections, "FROM PEAK TO POST MEME" and "MEME WARFARE," feature articles like "Mimetic Sameness" by Grant Bollmer (p. 154\), "A Postdigital Angel of History? On ‘Meme Theory’" by Scott Wark (p. 165\), "Post-Truth Design Tactics in Memes in India: Decoding Malicious Design Practices in Right-Wing Meme Factories" by Aarushi Bapna and Ajitesh Lokhande (p. 198\), and "Weapons of Mass Distraction: Far-Right Culture-Jamming Tactics in Memetic Warfare" by Andy King (p. 217\). The core message is an academic examination of memes across various contexts, from art and political discourse to their use as tools in information warfare and as a subject of theoretical study, featuring multiple authors contributing to a critical understanding of internet meme culture.)
 ---
-@byte_thrasher @ThePrimeagen https://t.co/CQvOYJ7Euy (https://ludwigabap.bearblog.dev/on-becoming-competitive-when-joining-a-new-company/)
+@ludwigABAP:
+@byte_thrasher @ThePrimeagen https://ludwigabap.bearblog.dev/on-becoming-competitive-when-joining-a-new-company/ (On becoming competitive when joining a new company | Ludwig - This is sort of a written-down blueprint of how I become competitive when joining a job. Being competitive, to me, means:
+
+
+
+
+I want people to think of me...)
 
 I one-shot wrote this when I first opened the bearblog because I had been answering a lot of DMs on this so I just dumped my thoughts on it
 ---
-What if we had more empathy for the machine? https://t.co/lzoHWKCbmS (https://twitter.com/morph_labs/status/1919769122444849365/video/1)
+@morph_labs:
+What if we had more empathy for the machine? [image](A stylized black and white graphic, likely a logo or symbolic representation, depicts a central arched or crescent-like shape, reminiscent of a rising sun or an eye, with prominent, jagged, wing-like or feather-like radiating elements extending symmetrically to either side. The graphic conveys a sense of dynamic energy, a watchful gaze, or a powerful, perhaps avian, entity in silhouette.)
 ---
+@TylerAlterman:
 I'm told I have the best taste in music and I agree. Below are some of my favorite playlists. I have hundreds more, so let me know if you have any requests (for vibe or genre)
 
-My favorite tracks: https://t.co/z4ht8ugC1b (https://open.spotify.com/playlist/5W8lbtm3XdLQBDIWdRgIIb?si=daeecb8fc8c442ca)
+My favorite tracks: https://open.spotify.com/playlist/5W8lbtm3XdLQBDIWdRgIIb?si=daeecb8fc8c442ca (Unsupported browser - Playlist · BVM · 150 items · 12 saves)
 
-One of many dance playlists for an outdoor dance that I
+One of many dance playlists for an outdoor dance that I throw: https://open.spotify.com/playlist/34uX3OXyIZk3Gbbg6QTiaC?si=f1cfb6825fc24da6 (Unsupported browser - Playlist · Treerave: Summer in Winter 12/8 · 20 items · 8 saves)
+
+Zero bpm ambient for focusing in coffee shops that have music blaring (this has made me much more productive when combined with in-ear or noise-cancelling headphones): https://open.spotify.com/playlist/4qJWSdDWBWdOhTqgjGL0do?si=bf917a7f9be846c1 (Unsupported browser) 
+
+Sweet ethereal ladies: https://open.spotify.com/playlist/4gQ4fygwY1q7FklFi60BTa?si=85aac93a62624ad2 (Unsupported browser - Playlist · Sweet ethereal ladies · 21 items · 4 saves) 
+
+For slow-dancing with lovers (or yourself): https://open.spotify.com/playlist/2WbC61o5CeAn2Rym7PsoGE?si=dd54b4ef87d94e64 (Unsupported browser - Playlist · 😌 simple, sweet · 37 items · 9 saves) 
+
+For living poetically: https://open.spotify.com/playlist/1KdQjbf93T957EE6ua9LQV?si=ea25682a0d294a21 (Unsupported browser - Playlist · The Poetic Bearing · 18 items · 1 saves) 
+
+For getting into a "meaning mood" lol: https://open.spotify.com/playlist/0OQ2vVzeQI6hGmwnKgHyvv?si=78680eaa194d4943 (Unsupported browser - Playlist · Meaning Mood · 26 items · 2 saves) 
+
+BPM that matches running: https://open.spotify.com/playlist/3quzcZHuIbC5VOSINzY56G?si=ecaad2dfa367431c (Unsupported browser - Playlist · 🏃🏻‍♂️Running · 203 items · 5 saves) 
+
+BPM that matches walking (quickly): https://open.spotify.com/playlist/5sov7I4WjOc4FSDhXtdRmZ?si=0274ae2f2d1244b8 (Unsupported browser - Playlist · 🚶🏻‍♂️Powerwalk · 256 items · 13 saves) 
+
+Psychofauna soundtrack: https://open.spotify.com/playlist/4YToPsIde25Xewp1F3G47f?si=cf0ed6b125014870 (Unsupported browser - Playlist · Psychofauna Soundtrack · 62 items · 11 saves) 
+
+Duets: https://open.spotify.com/playlist/5SSQoeApceLBA0OOVzxzyJ?si=85f8356d3dbe4a74 (Unsupported browser - Playlist · Duets · 65 items · 1 saves) 
+
+Only the best flows (hip hop): https://open.spotify.com/playlist/22I4GjVltGVPVEvKgJDb5g?si=a9fbf3d82faa4bd3 (Unsupported browser - Playlist · 🔀 Only the Best Flows · 49 items · 3 saves) 
+
+Date with destiny: https://open.spotify.com/playlist/1LdFO0E9xTqx4m57Yvu7XX?si=9e0a9e01cecc4c5d (Unsupported browser - Playlist · Destiny · 22 items · 2 saves) 
+
+Beautiful, spacious (good for tripping): https://open.spotify.com/playlist/7KU9zPEP52EBSHeR7fko80?si=a1d07edf9574468f (Unsupported browser - Playlist · 🌌 beautiful, spatious · 55 items · 17 saves) 
+
+Chill flourishing (good for parties):
 ---
+@kimmonismus:
 How can a game from only 30 developers be so good and outperform giant studios like Ubisoft so easily and then only cost $50?
 
 Expedition 33 game of the year, game of the decade. And it's not even close.
 ---
+Quoted tweet (@AnimexTwts):
+What in the pokemon is happening 😭 https://t.co/60OR0NZbTe
+
+@astridwilde1:
 i am in love with these animators
 ---
+Quoted tweet (unavailable):
+[Quoted tweet 1917602558434238490 not available]
+
+@adamdangelo:
 I really enjoyed this conversation with Rick Rubin. We talked about the early days of Facebook, Quora, Poe, AGI, user-generated content, and vibe coding. Link in next tweet.
 ---
+@dwarkesh_sp:
 I know I'm late to the party, but @deanwball 's essays are excellent, and have made me much more skeptical about the kinds of AI regulations I was previously somewhat sympathetic to.
 ---
+@freemanjiangg:
 No speaker? No problem.
 
 I built Beatsync — an open-source web audio player for high-precision, multi-device playback. 
 
-With millisecond accuracy, turn any group of devices into a full surround sound system. https://t.co/CERqksXqNf (https://twitter.com/freemanjiangg/status/1916959075939848427/video/1)
+With millisecond accuracy, turn any group of devices into a full surround sound system. [image](The screenshot displays the Beatsync web application, showcasing a collaborative music room at "beatsync.gg/room/471127" with "3 users" and a "Synced" status, along with offset and RTT metrics. The interface presents a "Your Library" section, "AUDIO EFFECTS" including "Rotation" controls, and a "Spatial Audio" panel that explains its function: "This grid simulates a spatial audio environment. The headphone icon is a listening source. The circles represent other devices in the room. Drag the headphone icon around and hear how the volume changes on each device. Isn't it cool!" Three users are listed as "prominent-goat You," "productive-grassho... Connected," and "ambitious-ostrich Connected." The visible tracklist features titles such as "Black Coast - TRNDSTTR (Lucian Remix\)," "STVCKS - Don't Be Scared," and "Illenium - Good Things Fall Apart ft. Jon Bellion." Tips for users suggest the application "Works best with multiple devices IRL in the same space" and advises to "Play on speaker directly. Don't use Bluetooth," allowing users to "Upload audio" to "Add music to queue.")
 ---
+@parconley:
 Focusmate transformed my social life.
 
-Here's my advice after two years of heavy use. https://t.co/4lqFJ6ZAx2 (https://twitter.com/parconley/status/1917002512781152680/photo/1)
+Here's my advice after two years of heavy use. [image](Screenshot of an online article titled "How to Build a Third Place on Focusmate," published on April 28, 2025, detailing the author's transformative experience with the Focusmate platform. The article's core message, summarized by the key statistics "2,456 hours. 1,447 people. 1 best friend. Significantly more productive," highlights how Focusmate fostered personal connections and boosted productivity. The introduction emphasizes the author became a "power user since 2023," citing specific achievements like spending 2,456 hours, meeting 1,447 people, forming 10+ significant friendships (some leading to in-person meetings\), finding a best friend, and generally becoming more productive. A Table of Contents outlines sections on making conversations, curating one's "neighborhood," and building a consistent routine with Focusmate.)
 ---
+Quoted tweet (@AsteraInstitute):
+We make big bets on the misfits and innovators working towards an abundant future for all. We’re looking for our next cohort of residents to join us starting October 2025. Is that you? https://t.co/nd8lsJlfDJ
+
+@catehall:
 GREETINGS SIR/MADAM HAVE YOU HEARD ABOUT OUR RESIDENCY PROGRAM???
 ---
+@littmath:
 I need a browser extension that tags everyone on here who bought into LK-99 hype.
 ---
+@nabeelqu:
 Best movies of the 2020s so far are Memoria (2021) and About Dry Grasses (2023). By a long way.
 ---
+@sleepinyourhat:
 More in my new essay on the Anthropic alignment blog here:
-https://t.co/UOCUoTPgO3 (https://alignment.anthropic.com/2025/bumpers/)
+https://alignment.anthropic.com/2025/bumpers/ (Putting up Bumpers)
 ---
-probably one of my favorite 'favorites' pages I have read too!: https://t.co/PUQvxO2XMi (https://niplav.site/favorites.html)
+@nearcyan:
+probably one of my favorite 'favorites' pages I have read too!: https://niplav.site/favorites.html (niplav)
 
 it's always the accounts with 3 digit followers (sometimes 4) with the best content. funny isn't it
 ---
+@dwarkesh_sp:
 New blog post: Questions about the future of AI
 
 A 6,000-word clusterfuck of considerations about economics, history, training, investment, and more.
 
-Thread of select questions below: https://t.co/YnONMucYLN (https://twitter.com/dwarkesh_sp/status/1914364629448581631/photo/1)
+Thread of select questions below: [image](This image is a bulleted outline detailing various aspects related to Artificial General Intelligence (AGI\). Key topics include AI capabilities such as Agency, Reinforcement Learning (RL\), and training techniques; economic considerations like early deployment, open source, and investment; potential Post-AGI scenarios including hive minds, software-only singularity, and transformative AI leading to explosive economic growth; alignment challenges such as reward hacking, takeover, model specification, and misuse; and other broad implications like geopolitics and epistemics. The core message is a comprehensive overview of critical areas surrounding the development and impact of advanced AI.)
 ---
-https://t.co/3nlYlRxw9r (https://twitter.com/owenbroadcast/status/1914308204000952709/photo/1)
+@owenbroadcast:
+[image]("THE WEATHER CHANGES... YET IS ALWAYS RECTANGULAR." and "ITS ESSENCE IS CLEARLY RECTANGULAR" are central textual elements in this cartoon, signed by OWEN, which features two men conversing in a setting resembling a therapy session. The image conveys a humorous and critical message about how perception can be confined by its frame, as one character observes that the weather appears rectangular when viewed through a rectangular window, with the other agreeing that its fundamental nature is rectangular, despite the non-rectangular forms of clouds and rain. The key entities are the two unnamed male characters discussing this paradoxical observation.)
 ---
+@salonium:
 What are some articles, blogposts, essays, etc. that you still think about over a year later?
 
 Here are a few of mine:
+</bookmarks>

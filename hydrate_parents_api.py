@@ -33,11 +33,24 @@ if not API_KEY:
     print("   export TWITTERAPI_KEY='pk_live_yourKeyHere'")
     sys.exit(1)
 
+# File type processing configuration - set to False to skip processing that file type
+PROCESS_TWEETS = True          # Process tweets_*.jsonl files
+PROCESS_LIKES = True           # Process likes_*.jsonl files  
+PROCESS_BOOKMARKS = True       # Process bookmarks_*.jsonl files
+PROCESS_REPLIES = False         # Process replies_*.jsonl files
+
 BATCH_SIZE = 100                               # IDs per request (safe ceiling)
 BASE_URL = "https://api.twitterapi.io/twitter/tweets"
 HEADERS = {"x-api-key": API_KEY}
 CREDITS_PER_TWEET = 15                         # Cost per tweet
 RATE_LIMIT_DELAY = 0.05                        # ~20 QPS to stay well under 200 QPS limit
+MAX_RETRIES = 3                                # Maximum retry attempts for rate limits
+RETRY_BACKOFF = [60, 120, 300]                 # Backoff delays in seconds (1min, 2min, 5min)
+
+# Directories to scan for input JSONL files
+SEARCH_DIRECTORIES: List[pathlib.Path] = [
+    pathlib.Path("small_example")
+]
 
 def chunks(lst: List[str], n: int) -> Iterator[List[str]]:
     """Yield successive n-sized chunks from lst."""
@@ -72,6 +85,26 @@ def extract_quoted_tweet_ids(tweets: List[Dict[str, Any]]) -> Set[str]:
         quoted_id = legacy.get("quoted_status_id_str")
         if quoted_id:
             quoted_ids.add(str(quoted_id))
+        
+        # ISSUE #10 FIX: Check GraphQL quoted_status_result structure
+        quoted_status_result = tweet.get("quoted_status_result", {})
+        if quoted_status_result:
+            quoted_result = quoted_status_result.get("result", {})
+            if quoted_result:
+                # Extract rest_id from the quoted tweet result
+                quoted_rest_id = quoted_result.get("rest_id")
+                if quoted_rest_id:
+                    quoted_ids.add(str(quoted_rest_id))
+        
+        # ADD THIS NEW BLOCK
+        # Check for quotedRefResult (another GraphQL format)
+        quoted_ref_result = tweet.get("quotedRefResult", {})
+        if quoted_ref_result:
+            result = quoted_ref_result.get("result", {})
+            if result and result.get("__typename") == "Tweet":
+                quoted_id = result.get("rest_id")
+                if quoted_id:
+                    quoted_ids.add(str(quoted_id))
     
     return quoted_ids
 
@@ -98,47 +131,78 @@ def hydrate_tweets(tweet_ids: List[str]) -> Iterator[Dict[str, Any]]:
         
         print(f"🔄 Hydrating batch {processed_batches}/{total_batches} ({batch_size} tweets)...")
         
-        try:
-            # Make API request
-            params = {"tweet_ids": ",".join(batch)}
-            response = requests.get(BASE_URL, headers=HEADERS, params=params, timeout=30)
-            
-            if response.status_code == 429:
-                print("⚠️  Rate limited, waiting 60 seconds...")
-                time.sleep(60)
-                continue
+        # Retry loop for rate limits
+        success = False
+        for attempt in range(MAX_RETRIES):
+            try:
+                # Make API request with expansions to guarantee relationship fields
+                params = {
+                    "tweet_ids": ",".join(batch),
+                    "expansions": "referenced_tweets.id,author_id"
+                }
+                response = requests.get(BASE_URL, headers=HEADERS, params=params, timeout=30)
                 
-            response.raise_for_status()
-            data = response.json()
-            
-            # Process results
-            tweets = data.get("tweets", [])
-            found_count = len(tweets)
-            estimated_credits = max(found_count * CREDITS_PER_TWEET, 15)  # Minimum 15 credits per request
-            
-            # Track failed IDs (requested but not returned)
-            found_ids = {str(tweet.get("id") or tweet.get("id_str")) for tweet in tweets if tweet.get("id") or tweet.get("id_str")}
-            batch_failed = [tid for tid in batch if tid not in found_ids]
-            failed_ids.extend(batch_failed)
-            
-            print(f"✅ Found {found_count}/{batch_size} tweets (≈{estimated_credits} credits)")
-            if batch_failed:
-                print(f"⚠️  {len(batch_failed)} tweets not found in this batch")
-            
-            for tweet in tweets:
-                yield tweet
+                if response.status_code == 429:
+                    if attempt < MAX_RETRIES - 1:  # Not the last attempt
+                        backoff_delay = RETRY_BACKOFF[attempt]
+                        print(f"⚠️  Rate limited (attempt {attempt + 1}/{MAX_RETRIES}), waiting {backoff_delay} seconds...")
+                        time.sleep(backoff_delay)
+                        continue
+                    else:
+                        print(f"❌ Rate limited after {MAX_RETRIES} attempts, skipping batch")
+                        break
+                    
+                response.raise_for_status()
+                data = response.json()
                 
-        except requests.exceptions.RequestException as e:
-            print(f"❌ API request failed for batch {processed_batches}: {e}")
-            failed_ids.extend(batch)
-            continue
-        except json.JSONDecodeError as e:
-            print(f"❌ Failed to parse JSON response for batch {processed_batches}: {e}")
+                # Process results
+                tweets = data.get("tweets", [])
+                found_count = len(tweets)
+                estimated_credits = max(found_count * CREDITS_PER_TWEET, 15)  # Minimum 15 credits per request
+                
+                # Track failed IDs (requested but not returned)
+                found_ids = {str(tweet.get("id") or tweet.get("id_str")) for tweet in tweets if tweet.get("id") or tweet.get("id_str")}
+                batch_failed = [tid for tid in batch if tid not in found_ids]
+                failed_ids.extend(batch_failed)
+                
+                print(f"✅ Found {found_count}/{batch_size} tweets (≈{estimated_credits} credits)")
+                if batch_failed:
+                    print(f"⚠️  {len(batch_failed)} tweets not found in this batch")
+                
+                for tweet in tweets:
+                    yield tweet
+                
+                success = True
+                break  # Successfully processed, exit retry loop
+                
+            except requests.exceptions.RequestException as e:
+                if attempt < MAX_RETRIES - 1:
+                    print(f"❌ API request failed (attempt {attempt + 1}/{MAX_RETRIES}): {e}")
+                    time.sleep(RETRY_BACKOFF[min(attempt, len(RETRY_BACKOFF) - 1)])
+                    continue
+                else:
+                    print(f"❌ API request failed after {MAX_RETRIES} attempts for batch {processed_batches}: {e}")
+                    break
+            except json.JSONDecodeError as e:
+                if attempt < MAX_RETRIES - 1:
+                    print(f"❌ JSON parse failed (attempt {attempt + 1}/{MAX_RETRIES}): {e}")
+                    time.sleep(RETRY_BACKOFF[min(attempt, len(RETRY_BACKOFF) - 1)])
+                    continue
+                else:
+                    print(f"❌ JSON parse failed after {MAX_RETRIES} attempts for batch {processed_batches}: {e}")
+                    break
+        else:
+            # This executes if the retry loop completed without breaking (all retries exhausted)
+            print(f"❌ All retry attempts exhausted for batch {processed_batches}")
             failed_ids.extend(batch)
             continue
         
-        # Rate limiting
-        if processed_batches < total_batches:
+        # If we didn't succeed, mark batch as failed
+        if not success:
+            failed_ids.extend(batch)
+        
+        # Rate limiting between successful batches
+        if success and processed_batches < total_batches:
             time.sleep(RATE_LIMIT_DELAY)
     
     # Save failed IDs to file for audit
@@ -159,9 +223,22 @@ def extract_parent_ids_from_jsonl_files() -> Set[str]:
     """
     all_parent_ids = set()
     
-    # Look for tweets, likes, and bookmarks JSONL files in current directory and example_tweets/
-    jsonl_patterns = ["tweets_*.jsonl", "likes_*.jsonl", "bookmarks_*.jsonl"]
-    search_paths = [pathlib.Path("."), pathlib.Path("example_tweets")]
+    # Build list of JSONL patterns based on configuration
+    jsonl_patterns = []
+    if PROCESS_TWEETS:
+        jsonl_patterns.append("tweets_*.jsonl")
+    if PROCESS_LIKES:
+        jsonl_patterns.append("likes_*.jsonl")
+    if PROCESS_BOOKMARKS:
+        jsonl_patterns.append("bookmarks_*.jsonl")
+    if PROCESS_REPLIES:
+        jsonl_patterns.append("replies_*.jsonl")
+    
+    if not jsonl_patterns:
+        print("⚠️  No file types enabled for processing")
+        return all_parent_ids
+    
+    search_paths = SEARCH_DIRECTORIES
     
     for search_path in search_paths:
         if not search_path.exists():
@@ -179,9 +256,33 @@ def extract_parent_ids_from_jsonl_files() -> Set[str]:
                         
                         try:
                             obj = json.loads(line)
+                            
+                            # 1. Collect from parent_ids field (existing logic) with early deduplication
                             parent_ids = obj.get("parent_ids", [])
                             if parent_ids:
-                                all_parent_ids.update(str(pid) for pid in parent_ids if pid)
+                                # ISSUE #8 FIX: Remove duplicates while preserving order
+                                unique_parent_ids = []
+                                seen = set()
+                                for pid in parent_ids:
+                                    if pid and str(pid) not in seen:
+                                        unique_parent_ids.append(str(pid))
+                                        seen.add(str(pid))
+                                all_parent_ids.update(unique_parent_ids)
+                            
+                            # 2. Collect from legacy structure (reply parents and quoted tweets)
+                            raw_data = obj.get("raw", {})
+                            if raw_data:
+                                legacy = raw_data.get("legacy", {})
+                                
+                                # Reply parent
+                                reply_parent_id = legacy.get("in_reply_to_status_id_str")
+                                if reply_parent_id:
+                                    all_parent_ids.add(str(reply_parent_id))
+                                
+                                # Quoted tweet
+                                quoted_tweet_id = legacy.get("quoted_status_id_str")
+                                if quoted_tweet_id:
+                                    all_parent_ids.add(str(quoted_tweet_id))
                         except json.JSONDecodeError:
                             print(f"⚠️  Skipping malformed JSON on line {line_no} in {file_path.name}")
                             continue
