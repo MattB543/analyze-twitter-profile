@@ -13,6 +13,7 @@ venv/
 env/
 ENV/
 
+
 # IDE files
 .vscode/
 .idea/
@@ -24,6 +25,7 @@ ENV/
 Thumbs.db
 
 # Output files
+*.json
 *.jsonl
 *.csv
 *.txt
@@ -31,9 +33,12 @@ parents.json
 image_captions.csv
 url_metadata.csv
 
+# Folders to ignore
+full_export/
+small_example/
+example_tweets/
+
 # Logs
 *.log
 
-# EXCEPTION: include the example_tweets folder and its files
-!example_tweets/
-!example_tweets/**
+.env

@@ -55,7 +55,15 @@ Python 3.10+ with the following external packages:
 - requests (for URL metadata fetching)
 - beautifulsoup4 (for HTML parsing)  
 - google-genai (for image captioning via Gemini API)
+- python-dotenv (for loading .env file with API keys - optional)
 - tkinter (for GUI folder picker - may not be available in headless environments)
+
+Environment Setup
+-----------------
+Create a .env file in your project directory with:
+    GEMINI_API_KEY=your_api_key_here
+
+Alternatively, set the GEMINI_API_KEY environment variable manually.
 """
 
 import json
@@ -73,10 +81,15 @@ import urllib.parse
 import socket
 import ipaddress
 import os
+import html
 from datetime import datetime
 from pathlib import Path
 from tkinter import filedialog, messagebox
 from typing import Any, Dict, List
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    load_dotenv = None
 try:
     from google import genai
     from google.genai import types
@@ -94,7 +107,15 @@ def get_client():
     if CLIENT is None:
         if genai is None:
             raise RuntimeError(f"Google GenAI not available: {_genai_import_error}")
-        CLIENT = genai.Client()  # reads GEMINI_API_KEY
+        
+        # Load environment variables from .env file if available
+        if load_dotenv is not None:
+            load_dotenv()
+        elif not os.getenv('GEMINI_API_KEY'):
+            print("⚠️  python-dotenv not installed. Install with: pip install python-dotenv")
+            print("💡  Alternatively, set GEMINI_API_KEY environment variable manually")
+        
+        CLIENT = genai.Client()  # reads GEMINI_API_KEY from environment
     return CLIENT
 
 # Regex for Twitter image URLs (only pbs.twimg.com URLs with query params)
@@ -125,7 +146,7 @@ ENABLE_CAPTIONS_REPLIES = False  # Disable captioning for replies/parent context
 # --------------------------------------------------------------------------- #
 
 def find_files_in_folder(folder: Path) -> tuple[Path | None, Path | None, Path | None, Path | None, Path | None]:
-    """Find tweets_*.jsonl, likes_*.jsonl, bookmarks_*.jsonl, replies_*.jsonl, and parents.json files in the given folder.
+    """Find cleaned_*.jsonl files and parents.json files in the given folder.
     
     Returns:
         Tuple of (tweets_file, likes_file, bookmarks_file, replies_file, parents_file) or None if not found
@@ -136,23 +157,23 @@ def find_files_in_folder(folder: Path) -> tuple[Path | None, Path | None, Path |
     replies_file = None
     parents_file  = None
     
-    # Look for tweets_*.jsonl (from Firefox extension)
-    for file in folder.glob("tweets_*.jsonl"):
+    # Look for cleaned_tweets_*.jsonl (from hydrate_parents_api.py cleaning)
+    for file in folder.glob("cleaned_tweets_*.jsonl"):
         tweets_file = file
         break  # Take the first one found
     
-    # Look for likes_*.jsonl (from Firefox extension)
-    for file in folder.glob("likes_*.jsonl"):
+    # Look for cleaned_likes_*.jsonl (from hydrate_parents_api.py cleaning)
+    for file in folder.glob("cleaned_likes_*.jsonl"):
         likes_file = file
         break  # Take the first one found
     
-    # Look for bookmarks_*.jsonl
-    for file in folder.glob("bookmarks_*.jsonl"):
+    # Look for cleaned_bookmarks_*.jsonl
+    for file in folder.glob("cleaned_bookmarks_*.jsonl"):
         bookmarks_file = file
         break  # Take the first one found
     
-    # Look for replies_*.jsonl
-    for file in folder.glob("replies_*.jsonl"):
+    # Look for cleaned_replies_*.jsonl
+    for file in folder.glob("cleaned_replies_*.jsonl"):
         replies_file = file
         break
     
@@ -169,281 +190,87 @@ def find_files_in_folder(folder: Path) -> tuple[Path | None, Path | None, Path |
 # --------------------------------------------------------------------------- #
 
 def parse_twitter_jsonl(file_path: Path, file_type: str, self_ids: set = None) -> tuple[List[Dict[str, Any]], Dict[str, str], Dict[str, str], Dict[str, str], Dict[str, Dict[str, Any]]]:
-    """Unified parser for tweets, likes, and bookmarks JSONL files.
-    
-    Args:
-        file_path: Path to the JSONL file
-        file_type: Type of file - 'tweets', 'likes', or 'bookmarks'
-        self_ids: Set of user IDs that belong to the data owner (optional)
-    
-    Returns:
-        Tuple of (records_list, text_lookup, media_mappings_dict, url_mappings_dict, meta_by_id_dict)
+    """
+    Unified parser for CLEANED tweets, likes, and bookmarks JSONL files.
     """
     records = []
     text_lookup = {}
-    all_media_mappings = {}
-    all_url_mappings = {}
-    meta_by_id = {}  # Track relationships for all sources
-    
-    # Use provided self_ids or empty set if not provided
+    all_media_mappings = {} # This can be simplified or removed, see below
+    all_url_mappings = {}   # This can be simplified or removed, see below
+    meta_by_id = {}
+
     if self_ids is None:
         self_ids = set()
-    
-    lines = file_path.read_text(encoding="utf-8").splitlines()
-    
-    for line_no, line in enumerate(lines, 1):
-        if not line.strip():
-            continue
-        try:
-            obj = json.loads(line)
-            tweet_id = obj.get("tweet_id", "")
-            
-            # Extract media mappings and URL mappings from raw data
-            raw_data = obj.get("raw", {})
-            legacy = raw_data.get("legacy", {})
-            
-            # --- Handle edited tweets (prefer canonical version) ---
-            edit_control = raw_data.get("edit_control", {})
-            edit_tweet_ids = edit_control.get("edit_tweet_ids", [])
-            canonical_tweet_id = tweet_id
-            original_tweet_id = tweet_id  # Keep track of original for parent ID mapping
-            if edit_tweet_ids:
-                # Use the last ID in edit_tweet_ids as the canonical version
-                canonical_tweet_id = edit_tweet_ids[-1]
-                if canonical_tweet_id != tweet_id:
-                    print(f"📝  Detected edited tweet: {tweet_id} → canonical: {canonical_tweet_id}", file=sys.stderr)
-                    tweet_id = canonical_tweet_id  # remap immediately
-            
-            # --- full text resolution order (same across all file types) ---
-            text = None
-            # 1) Note Tweet / Longform
-            nt = raw_data.get("note_tweet", {}).get("note_tweet_results", {}).get("result", {})
-            if not text:
-                text = nt.get("text")
-                # note_tweet entity_set.urls[]
-                for u in nt.get("entity_set", {}).get("urls", []):
-                    short = u.get("url")
-                    exp = u.get("expanded_url")
-                    if short and exp:
-                        all_url_mappings[short] = exp
 
-            # 2) Legacy full_text
-            if not text:
-                text = legacy.get("full_text") or legacy.get("text")
+    with file_path.open('r', encoding='utf-8') as infile:
+        for line_no, line in enumerate(infile, 1):
+            if not line.strip():
+                continue
+            try:
+                obj = json.loads(line)
+                tweet_id = obj.get("id")
+                if not tweet_id:
+                    continue
 
-            # 3) Fallback to top-level truncated
-            if not text:
+                # The text is already resolved and clean
                 text = obj.get("text", "")
-
-            # Pull URL mappings from legacy.entities.urls
-            entities = legacy.get("entities", {})
-            for u in entities.get("urls", []):
-                short = u.get("url")
-                exp = u.get("expanded_url")
-                if short and exp:
-                    all_url_mappings[short] = exp
-            
-            # Store text in lookup for all file types
-            if tweet_id and text:
                 text_lookup[tweet_id] = text
 
-            # ISSUE #2 FIX: Extract embedded quoted tweet objects (before hydration)
-            if raw_data:
-                # Check for embedded quoted tweet in GraphQL format
-                quoted_status_result = raw_data.get("quoted_status_result", {})
-                if quoted_status_result:
-                    quoted_result = quoted_status_result.get("result", {})
-                    if quoted_result:
-                        quoted_legacy = quoted_result.get("legacy", {})
-                        quoted_text = quoted_legacy.get("full_text") or quoted_legacy.get("text")
-                        quoted_id = quoted_result.get("rest_id") or quoted_result.get("id_str")
-                        
-                        if quoted_id and quoted_text:
-                            text_lookup[quoted_id] = quoted_text
-                            # Extract quoted tweet author info
-                            quoted_core = quoted_result.get("core", {}).get("user_results", {}).get("result", {})
-                            quoted_screen_name = quoted_core.get("core", {}).get("screen_name", "")
-                            # Fallback to legacy.screen_name for GraphQL user objects
-                            if not quoted_screen_name:
-                                quoted_screen_name = quoted_core.get("legacy", {}).get("screen_name", "")
-                            quoted_author_id = quoted_core.get("rest_id", "")
-                            
-                            # Store metadata for quoted tweet
-                            meta_by_id[quoted_id] = {
-                                "reply_to": quoted_legacy.get("in_reply_to_status_id_str", ""),
-                                "quoted": quoted_legacy.get("quoted_status_id_str", ""),
-                                "screen_name": quoted_screen_name,
-                                "author_id": quoted_author_id,
-                                "reply_to_user": quoted_legacy.get("in_reply_to_screen_name", ""),
-                                "source": file_type + "_embedded"
-                            }
-                
-                # Check for embedded retweeted status (for completeness)
-                retweeted_status_result = raw_data.get("retweeted_status_result", {})
-                if retweeted_status_result:
-                    retweeted_result = retweeted_status_result.get("result", {})
-                    if retweeted_result:
-                        retweeted_legacy = retweeted_result.get("legacy", {})
-                        retweeted_text = retweeted_legacy.get("full_text") or retweeted_legacy.get("text")
-                        retweeted_id = retweeted_result.get("rest_id") or retweeted_result.get("id_str")
-                        
-                        if retweeted_id and retweeted_text:
-                            text_lookup[retweeted_id] = retweeted_text
-                            # Extract retweeted tweet author info
-                            retweeted_core = retweeted_result.get("core", {}).get("user_results", {}).get("result", {})
-                            retweeted_screen_name = retweeted_core.get("core", {}).get("screen_name", "")
-                            # Fallback to legacy.screen_name for GraphQL user objects
-                            if not retweeted_screen_name:
-                                retweeted_screen_name = retweeted_core.get("legacy", {}).get("screen_name", "")
-                            retweeted_author_id = retweeted_core.get("rest_id", "")
-                            
-                            # Store metadata for retweeted tweet
-                            meta_by_id[retweeted_id] = {
-                                "reply_to": retweeted_legacy.get("in_reply_to_status_id_str", ""),
-                                "quoted": retweeted_legacy.get("quoted_status_id_str", ""),
-                                "screen_name": retweeted_screen_name,
-                                "author_id": retweeted_author_id,
-                                "reply_to_user": retweeted_legacy.get("in_reply_to_screen_name", ""),
-                                "source": file_type + "_embedded"
-                            }
+                # The URLs are already extracted
+                # We will handle these later, but we can collect them
+                # Note: The old script expected mappings (t.co -> expanded),
+                # but the new format gives a flat list of expanded URLs.
+                # We will adapt the downstream logic to handle this.
 
-                extended_entities = legacy.get("extended_entities", {})
-                
-                # Extract media URL mappings
-                media_source = extended_entities.get("media", []) or entities.get("media", [])
-                for media_data in media_source:
-                    shortened = media_data.get("url", "")
-                    media_url = media_data.get("media_url_https", "")
-                    if shortened and media_url:
-                        # Store media mapping but don't expand in text - leave for image processing
-                        all_media_mappings[shortened] = media_url
+                # Populate metadata for context chains
+                author_id = obj.get("author_id")
+                interaction_type = obj.get("interaction_type")
+                linked_id = obj.get("linked_tweet_id")
 
-            # Extract reply/quote relationships for ALL sources
-            reply_to_tweet_id = legacy.get("in_reply_to_status_id_str", "")
-            quoted_tweet_id = legacy.get("quoted_status_id_str", "")
-            reply_to_user = legacy.get("in_reply_to_screen_name", "")
-            
-            # Fallback to parent_ids if raw data not available
-            if not reply_to_tweet_id and not quoted_tweet_id:
-                parent_ids = obj.get("parent_ids", [])
-                if parent_ids:
-                    # Remove duplicates while preserving order
-                    unique_parent_ids = []
-                    seen = set()
-                    for pid in parent_ids:
-                        if pid not in seen:
-                            unique_parent_ids.append(pid)
-                            seen.add(pid)
-                    parent_ids = unique_parent_ids
-                    
-                    # Better logic for parent_ids interpretation
-                    if obj.get("reply", 0) > 0 and obj.get("quote", 0) > 0 and len(parent_ids) >= 2:
-                        # Tweet is both a reply and a quote
-                        reply_to_tweet_id = parent_ids[0]
-                        quoted_tweet_id = parent_ids[1]
-                    elif obj.get("reply", 0) > 0 and parent_ids:
-                        # Tweet is a reply
-                        reply_to_tweet_id = parent_ids[0]
-                    elif obj.get("quote", 0) > 0 and parent_ids:
-                        # Tweet is a quote
-                        quoted_tweet_id = parent_ids[0]
-                    elif len(parent_ids) >= 2:
-                        # Ambiguous case - assume reply takes precedence
-                        reply_to_tweet_id = parent_ids[0]
-                        # Don't assume second ID is quoted - it might be part of a thread
-                    elif parent_ids:
-                        # Single parent - assume it's a reply
-                        reply_to_tweet_id = parent_ids[0]
-            
-            # Extract author id & screen name
-            screen_name = ""
-            author_id = ""
-            if raw_data:
-                core_data = raw_data.get("core", {})
-                user_results = core_data.get("user_results", {})
-                result = user_results.get("result", {})
-                core_user = result.get("core", {})
-                screen_name = core_user.get("screen_name", "")
-                author_id = result.get("rest_id") or result.get("id") or ""
-            
-            if not screen_name:
-                user = obj.get("user", {})
-                screen_name = user.get("screen_name", "")
-            
-            # ISSUE #9 FIX: Update parent/quote IDs if they reference the original (pre-canonical) ID
-            if canonical_tweet_id != original_tweet_id:
-                # If this tweet was canonicalized, we need to check if any parent/quote IDs
-                # in the current processing batch reference the original ID and update them
-                # Note: This is a best-effort fix for the current record; cross-record dependencies
-                # would require a second pass which is beyond the scope of this fix
-                if reply_to_tweet_id == original_tweet_id:
-                    reply_to_tweet_id = canonical_tweet_id
-                if quoted_tweet_id == original_tweet_id:
-                    quoted_tweet_id = canonical_tweet_id
+                reply_to_id = linked_id if interaction_type == 'reply' else None
+                quote_id = linked_id if interaction_type == 'quote_tweet' else None
 
-            # Store metadata for relationship tracking
-            if tweet_id:
                 meta_by_id[tweet_id] = {
-                    "reply_to": reply_to_tweet_id,
-                    "quoted": quoted_tweet_id,
-                    "screen_name": screen_name,  # keep raw (no @)
+                    "reply_to": reply_to_id,
+                    "quoted": quote_id,
+                    "screen_name": obj.get("screen_name"),
                     "author_id": author_id,
-                    "reply_to_user": reply_to_user,
+                    "reply_to_user": obj.get("reply_to_screen_name"),
                     "source": file_type
                 }
-            
-            # Create unified record structure for all sources
-            authored_by_me = (author_id and author_id in self_ids)
-            if file_type in ("tweets", "replies"):
-                is_retweet = bool(raw_data.get("retweeted_status_result"))
-                
-                # Extract retweeted user and text for retweets
-                retweeted_user = None
-                retweeted_text = None
-                if is_retweet:
-                    rt_obj = raw_data.get("retweeted_status_result", {}).get("result") or {}
-                    legacy_rt = rt_obj.get("legacy", {})
-                    if legacy_rt:
-                        retweeted_text = legacy_rt.get("full_text") or legacy_rt.get("text")
-                        rt_core = rt_obj.get("core", {}).get("user_results", {}).get("result", {})
-                        rt_user_core = rt_core.get("core", {})
-                        retweeted_user = rt_user_core.get("screen_name")
-                
-                records.append({
+
+                # Create the unified record for export_unified_text
+                is_retweet = interaction_type == 'retweet'
+
+                record = {
                     "id": tweet_id,
                     "created_at": obj.get("created_at", ""),
-                    "text": text or "",
+                    "text": text,
+                    "full_text": text, # For compatibility with existing logic
                     "author_id": author_id,
-                    "authored_by_me": authored_by_me,  # True only if author_id matches user
+                    "authored_by_me": (author_id and author_id in self_ids),
+                    "screen_name": obj.get("screen_name"),
                     "is_retweet": is_retweet,
-                    "retweeted_user": retweeted_user,
-                    "retweeted_text": retweeted_text,
-                    "is_reply": bool(reply_to_tweet_id),
-                    "quoted_tweet_id": quoted_tweet_id,
-                    "reply_to_tweet_id": reply_to_tweet_id,
-                    "reply_to_user": reply_to_user,
-                    "source": file_type
-                })
-            else:
-                # For likes and bookmarks, now include relationship metadata
-                records.append({
-                    "id": tweet_id,
-                    "screen_name": screen_name,  # store raw (no @)
-                    "author_id": author_id,
-                    "authored_by_me": authored_by_me,
-                    "full_text": text or "",
-                    "is_reply": bool(reply_to_tweet_id),
-                    "quoted_tweet_id": quoted_tweet_id,
-                    "reply_to_tweet_id": reply_to_tweet_id,
-                    "reply_to_user": reply_to_user,
-                    "source": file_type
-                })
-                        
-        except json.JSONDecodeError:
-            print(f"⚠️  Skipping malformed JSON on line {line_no} in {file_path.name}", file=sys.stderr)
-            continue
-    
-    return records, text_lookup, all_media_mappings, all_url_mappings, meta_by_id
+                    "retweeted_user": obj.get("retweeted_screen_name") if is_retweet else None,
+                    "retweeted_text": obj.get("retweeted_text") if is_retweet else None,
+                    "is_reply": bool(reply_to_id),
+                    "quoted_tweet_id": quote_id,
+                    "reply_to_tweet_id": reply_to_id,
+                    "reply_to_user": obj.get("reply_to_screen_name"),
+                    "source": file_type,
+                    # Add the new URL lists to the record
+                    "urls": obj.get("urls", []),
+                    "media_urls": obj.get("media_urls", [])
+                }
+                records.append(record)
+
+            except json.JSONDecodeError:
+                print(f"⚠️  Skipping malformed JSON on line {line_no} in {file_path.name}", file=sys.stderr)
+                continue
+
+    # The old return values for URL mappings are no longer built this way.
+    # We return empty dicts for compatibility but will adapt the main loop.
+    return records, text_lookup, {}, {}, meta_by_id
 
 
 def load_parents_json(parents_file: Path) -> tuple[Dict[str, str], Dict[str, str], Dict[str, Dict[str, Any]]]:
@@ -504,20 +331,50 @@ def load_parents_json(parents_file: Path) -> tuple[Dict[str, str], Dict[str, str
                     if legacy_quoted_id:
                         quoted = str(legacy_quoted_id)
             
-            # Extract author information
+            # Extract author information with a more robust, multi-step process
             author_username = ""
-            includes = tweet_data.get('includes', {})
-            users = includes.get('users', [])
+            author_id = None
+
+            # --- Step 1: Find the Author ID from multiple possible locations ---
             author_id = tweet_data.get('author_id')
-            if author_id and users:
+            if not author_id:
+                author_id = tweet_data.get('legacy', {}).get('user_id_str')
+
+            # --- Step 2: Use the Author ID to find the screen name ---
+            if author_id:
+                # Method A: Look in the API v2 `includes` object (most reliable)
+                includes = tweet_data.get('includes', {})
+                users = includes.get('users', [])
                 for user in users:
                     if user.get('id') == author_id:
                         author_username = user.get('username', '')
                         break
-            
-            # Fallback: try to get screen name from core user structure (v1.1 graphql shape)
-            core_user = tweet_data.get("core", {}).get("user_results", {}).get("result", {}).get("core", {})
-            author_username = core_user.get("screen_name") or author_username
+
+            # --- Step 3: If screen name is still not found, try other fallbacks ---
+            if not author_username:
+                # Method B: Check the GraphQL-style `core` structure
+                user_result = tweet_data.get("core", {}).get("user_results", {}).get("result", {})
+                if user_result:
+                    author_username = user_result.get("core", {}).get("screen_name") or \
+                                      user_result.get("legacy", {}).get("screen_name")
+
+            if not author_username:
+                # Method C: Check for a legacy top-level `user` object
+                user_object = tweet_data.get("user", {})
+                if user_object:
+                    author_username = user_object.get("screen_name")
+
+            if not author_username:
+                # Method D: Check for a user object inside the `legacy` object
+                legacy_user_object = tweet_data.get("legacy", {}).get("user", {})
+                if legacy_user_object:
+                    author_username = legacy_user_object.get("screen_name")
+
+            if not author_username:
+                # Method E: Check for TwitterAPI.io format - author.userName
+                author_object = tweet_data.get("author", {})
+                if author_object:
+                    author_username = author_object.get("userName")
             
             # Also get reply_to_user from legacy if available
             reply_to_user = ""
@@ -546,20 +403,6 @@ def load_parents_json(parents_file: Path) -> tuple[Dict[str, str], Dict[str, str
         print(f"⚠️  Failed to load parent tweets: {e}")
         return {}, {}, {}
 
-
-# Legacy function - replaced by parse_twitter_jsonl
-def parse_tweets_jsonl(tweets_file: Path, self_ids: set = None) -> tuple[List[Dict[str, Any]], Dict[str, str], Dict[str, str]]:
-    """Parse tweets from JSONL file exported by Firefox extension.
-    
-    Args:
-        tweets_file: Path to tweets JSONL file
-        self_ids: Set of user IDs that belong to the data owner (optional)
-    
-    Returns:
-        Tuple of (tweets_list, media_mappings_dict, url_mappings_dict)
-    """
-    records, text_lookup, media_mappings, url_mappings, _ = parse_twitter_jsonl(tweets_file, "tweets", self_ids)
-    return records, media_mappings, url_mappings
 
 
 def get_thread_context(tweet_id: str, tweet_lookup: Dict[str, str], max_depth: int = 3, visited: set = None) -> List[str]:
@@ -733,7 +576,11 @@ def export_unified_text(records: List[Dict[str, Any]],
     """Unified export function with recursive context for all record types."""
     
     def process_text(text: str) -> str:
-        """Apply URL expansion, image captions, and metadata to text."""
+        """Apply HTML unescaping, URL expansion, image captions, and metadata to text."""
+        # First, convert any HTML entities (e.g., &gt;, &amp;) back to their symbols
+        text = html.unescape(text)
+
+        # Then apply the usual transformations
         if url_mappings:
             text = expand_short_urls(text, url_mappings)
         if url_to_caption:
@@ -746,6 +593,23 @@ def export_unified_text(records: List[Dict[str, Any]],
         """Remove trailing t.co URL that specifically points to the quoted tweet."""
         # Use the new aggressive stripping function
         return strip_trailing_quote_url_aggressive(text, quoted_id, url_mappings, url_to_caption)
+    
+    def append_urls_and_media(f, record: Dict[str, Any]) -> None:
+        """Append media and links from record to the output file."""
+        # Append media urls with captions
+        media_urls = record.get("media_urls", [])
+        for media_url in media_urls:
+            caption = url_to_caption.get(media_url) if url_to_caption else "Image"
+            if not caption or caption.startswith("ERROR"):
+                caption = "Image not captioned"
+            safe_caption = caption.replace(")", r"\)").replace("\n", " ")
+            f.write(f"\n[image]({safe_caption})")
+
+        # Append external urls with metadata
+        external_urls = record.get("urls", [])
+        for url in external_urls:
+            enhanced_meta = url_to_meta.get(url, url) if url_to_meta else url
+            f.write(f"\n[link]({enhanced_meta})")
     
     # Track tweets that have already been displayed in context chains to prevent duplication
     already_displayed = set()
@@ -787,6 +651,9 @@ def export_unified_text(records: List[Dict[str, Any]],
                     f.write("RT (unknown):\n")
                 f.write(main_text)
                 
+                # Append URLs and media for retweets
+                append_urls_and_media(f, record)
+                
                 # Mark this tweet as displayed
                 already_displayed.add(tweet_id)
                 content_written = True
@@ -825,32 +692,25 @@ def export_unified_text(records: List[Dict[str, Any]],
                         if ctx_type != "quoted_unavailable" and len(ctx_text) > 500:
                             ctx_text = ctx_text[:1500] + "... [truncated]"
                         
-                        # Format based on context type and whether it's the current user's tweet
+                        # Format with consistent @author: format for clear conversation flow
+                        label = f"@{ctx_screen_name}" if ctx_screen_name and ctx_screen_name != "unknown" else "@unknown"
+
                         if ctx_id == tweet_id:
                             # This is the tweet being processed (could be user's or someone else's)
                             user_tweet_written = True
-                            
-                            # Determine if this is actually the user's authored content or someone else's
                             if record.get("authored_by_me"):
                                 f.write("@me:\n")
                             else:
-                                label = f"@{ctx_screen_name}" if ctx_screen_name and ctx_screen_name != "unknown" else "@unknown"
                                 f.write(f"{label}:\n")
                             f.write(ctx_text)
-                            # Ensure separation before any quoted content that follows
-                            if j + 1 < len(context_chain):
-                                nxt_type = context_chain[j+1].get("type")
-                                if nxt_type in ("quoted", "quoted_unavailable"):
-                                    if not ctx_text.endswith('\n'):
-                                        f.write("\n")
-                                    f.write("\n")  # blank line before quoted block
+                            # Append URLs and media for the main tweet in context chain
+                            append_urls_and_media(f, record)
                         elif ctx_type == "quoted":
-                            f.write(f"Quoted tweet (@{ctx_screen_name}):\n{ctx_text}\n\n")
+                            f.write(f"Quoted tweet ({label}):\n{ctx_text}\n\n")
                         elif ctx_type == "quoted_unavailable":
                             f.write(f"Quoted tweet (unavailable):\n{ctx_text}\n\n")
                         else:
-                            # This is a parent/context tweet, which is a reply by definition of the chain's structure
-                            f.write(f"Replied to tweet (@{ctx_screen_name}):\n{ctx_text}\n\n")
+                            f.write(f"{label}:\n{ctx_text}\n\n")
                     
                     # Mark all tweets in this context chain as displayed to prevent future duplication
                     for context_item in context_chain:
@@ -874,6 +734,9 @@ def export_unified_text(records: List[Dict[str, Any]],
                                 f.write("@unknown:\n")
                         f.write(main_text)
                         
+                        # Append URLs and media for fallback case
+                        append_urls_and_media(f, record)
+                        
                         # Mark this tweet as displayed
                         already_displayed.add(tweet_id)
                         content_written = True
@@ -893,9 +756,15 @@ def export_unified_text(records: List[Dict[str, Any]],
                         f.write("@me:\n")
                     else:
                         screen_name = record.get("screen_name", "")
-                        if screen_name:
-                            f.write(f"@{screen_name}:\n")
+                        # Fallback to metadata if screen_name is not in the top-level record
+                        if not screen_name:
+                            meta = meta_by_id.get(record.get("id"), {})
+                            screen_name = meta.get("screen_name", "unknown")
+                        f.write(f"@{screen_name}:\n")
                     f.write(main_text)
+                    
+                    # Append URLs and media for fallback case
+                    append_urls_and_media(f, record)
                     
                     # Add unavailable quote marker if needed
                     if quoted_tweet_id and quoted_tweet_id not in tweet_lookup:
@@ -940,6 +809,9 @@ def export_unified_text(records: List[Dict[str, Any]],
                 main_text = process_text(main_text)
                 f.write(main_text)
                 
+                # Append URLs and media for simple tweets
+                append_urls_and_media(f, record)
+                
                 # Mark this tweet as displayed
                 already_displayed.add(tweet_id)
                 content_written = True
@@ -953,173 +825,6 @@ def export_unified_text(records: List[Dict[str, Any]],
 # --------------------------------------------------------------------------- #
 #  Bookmarks                                                                  #
 # --------------------------------------------------------------------------- #
-
-def parse_bookmarks_jsonl(bookmarks_file: Path, self_ids: set = None) -> tuple[List[Dict[str, Any]], Dict[str, str], Dict[str, str]]:
-    """Parse bookmarks from JSONL file - handles both old and new formats.
-    
-    Args:
-        bookmarks_file: Path to bookmarks JSONL file
-        self_ids: Set of user IDs that belong to the data owner (optional, for future use)
-    
-    Returns:
-        Tuple of (tweets_list, media_mappings_dict, url_mappings_dict)
-    """
-    tweets = []
-    all_media_mappings = {}
-    all_url_mappings = {}
-    
-    for line_no, line in enumerate(bookmarks_file.read_text(encoding="utf-8").splitlines(), 1):
-        if not line.strip():
-            continue
-        try:
-            obj = json.loads(line)
-        except json.JSONDecodeError:
-            print(f"⚠️  Skipping malformed JSON on line {line_no}", file=sys.stderr)
-            continue
-        
-        # Check if this is the new simplified format from Firefox extension
-        if "tweet_id" in obj and "text" in obj:
-            # New format - extract media and URL mappings from raw data if available
-            raw_data = obj.get("raw", {})
-            if raw_data:
-                legacy = raw_data.get("legacy", {})
-                
-                # --- full text resolution order (same as tweets/likes) ---
-                text = None
-                # 1) Note Tweet / Longform
-                nt = raw_data.get("note_tweet", {}).get("note_tweet_results", {}).get("result", {})
-                if not text:
-                    text = nt.get("text")
-                    # note_tweet entity_set.urls[]
-                    for u in nt.get("entity_set", {}).get("urls", []):
-                        short = u.get("url")
-                        exp = u.get("expanded_url")
-                        if short and exp:
-                            all_url_mappings[short] = exp
-
-                # 2) Legacy full_text
-                if not text:
-                    text = legacy.get("full_text") or legacy.get("text")
-
-                # 3) Fallback to top-level 
-                if not text:
-                    text = obj.get("text", "")
-                
-                # Extract URL mappings from legacy data
-                entities = legacy.get("entities", {})
-                for u in entities.get("urls", []):
-                    short = u.get("url")
-                    exp = u.get("expanded_url")
-                    if short and exp:
-                        all_url_mappings[short] = exp
-                
-                extended_entities = legacy.get("extended_entities", {})
-                
-                # Extract media URL mappings
-                media_source = extended_entities.get("media", []) or entities.get("media", [])
-                for media_data in media_source:
-                    shortened = media_data.get("url", "")
-                    media_url = media_data.get("media_url_https", "")
-                    if shortened and media_url:
-                        # Store media mapping but don't expand in text - leave for image processing
-                        all_media_mappings[shortened] = media_url
-            else:
-                text = obj.get("text", "")
-            
-            tweets.append({
-                "screen_name": "",  # Not available in new format
-                "full_text": text,
-            })
-            continue
-        
-        # Old format - complex parsing from Twitter export
-        # Extract screen name from the nested structure
-        screen_name = ""
-        raw_data = obj.get("raw", {})
-        if raw_data:
-            core_data = raw_data.get("core", {})
-            user_results = core_data.get("user_results", {})
-            result = user_results.get("result", {})
-            core_user = result.get("core", {})
-            screen_name = core_user.get("screen_name", "")
-        
-        # If no screen name found in raw data, fall back to top-level user
-        if not screen_name:
-            user = obj.get("user", {})
-            screen_name = user.get("screen_name", "")
-        
-        # Extract full text and URL mappings - check for note tweet first, then legacy full_text
-        full_text = ""
-        url_mappings = {}  # For regular URLs (not media)
-        media_mappings = {}  # For media URLs (t.co -> pbs.twimg.com)
-        text_source = None  # Track which source we used for text
-        
-        if raw_data:
-            # Check for note tweet (long-form content)
-            note_tweet = raw_data.get("note_tweet", {})
-            if note_tweet:
-                note_results = note_tweet.get("note_tweet_results", {})
-                note_result = note_results.get("result", {})
-                note_text = note_result.get("text", "")
-                if note_text:
-                    full_text = note_text
-                    text_source = "note_tweet"
-                    # Extract URL mappings from note_tweet
-                    entity_set = note_result.get("entity_set", {})
-                    urls = entity_set.get("urls", [])
-                    for url_data in urls:
-                        shortened = url_data.get("url", "")
-                        expanded = url_data.get("expanded_url", "")
-                        if shortened and expanded:
-                            url_mappings[shortened] = expanded
-            
-            # Fall back to legacy full_text if no note tweet
-            if not full_text:
-                legacy = raw_data.get("legacy", {})
-                legacy_text = legacy.get("full_text", "")
-                if legacy_text:
-                    full_text = legacy_text
-                    text_source = "legacy"
-                    # Extract URL mappings from legacy (non-media only)
-                    entities = legacy.get("entities", {})
-                    urls = entities.get("urls", [])
-                    for url_data in urls:
-                        shortened = url_data.get("url", "")
-                        expanded = url_data.get("expanded_url", "")
-                        if shortened and expanded:
-                            url_mappings[shortened] = expanded
-                
-                # Extract media URL mappings separately (don't expand these in text)
-                extended_entities = legacy.get("extended_entities", {})
-                media_source = extended_entities.get("media", []) or entities.get("media", [])
-                for media_data in media_source:
-                    shortened = media_data.get("url", "")
-                    media_url = media_data.get("media_url_https", "")
-                    if shortened and media_url:
-                        # Store media mapping but don't expand in text - leave for image processing
-                        media_mappings[shortened] = media_url
-        
-        # If no text found in raw data, fall back to top-level text
-        if not full_text:
-            full_text = obj.get("text", "")
-        
-        # Replace shortened URLs with expanded URLs (but NOT media URLs)
-        for shortened, expanded in url_mappings.items():
-            full_text = full_text.replace(shortened, expanded)
-        
-        # Merge URL mappings into function-level mappings for downstream use
-        all_url_mappings.update(url_mappings)
-        
-        # Collect media mappings for image processing
-        all_media_mappings.update(media_mappings)
-        
-        tweets.append({
-            "screen_name": screen_name,  # store raw (no @)
-            "full_text": full_text,
-        })
-    return tweets, all_media_mappings, all_url_mappings
-
-
 
 
 
@@ -1157,7 +862,7 @@ def should_fetch_url(url: str, allow_domains: set = None) -> bool:
         return False
 
 
-def fetch_url_metadata(url: str, max_retries: int = 3, allow_domains: set = None) -> Dict[str, str]:
+def fetch_url_metadata(url: str, max_retries: int = 1, allow_domains: set = None) -> Dict[str, str]:
     """Fetch meta title and description from a URL with retry logic.
     
     Args:
@@ -1299,6 +1004,50 @@ def generate_url_metadata_from_texts(texts: List[str], max_urls: int = 1000, all
     return url_to_meta
 
 
+def generate_url_metadata_from_urls(urls_to_process: List[str], max_urls: int = 1000, allow_domains: set = None) -> Dict[str, str]:
+    """Generate metadata for a list of URLs."""
+    url_to_meta = {}
+    
+    if not urls_to_process:
+        return url_to_meta
+    
+    # Filter out URLs with excluded file extensions
+    filtered_urls = []
+    for url in urls_to_process:
+        url_lower = url.lower()
+        is_excluded = any(url_lower.endswith(ext) for ext in EXCLUDE_EXTENSIONS)
+        if not is_excluded:
+            filtered_urls.append(url)
+    
+    # Limit the number of URLs to process
+    if len(filtered_urls) > max_urls:
+        filtered_urls = filtered_urls[:max_urls]
+        print(f"⚠️  Found {len(urls_to_process)} URLs, limiting to first {max_urls} for processing")
+    
+    # Generate metadata for each unique URL
+    for i, url in enumerate(filtered_urls, 1):
+        try:
+            metadata = fetch_url_metadata(url, allow_domains=allow_domains)
+            title = metadata['title']
+            description = metadata['description']
+            
+            # Create the enhanced format: URL (title - description)
+            if title and description:
+                enhanced = f"{url} ({title} - {description})"
+            elif title:
+                enhanced = f"{url} ({title})"
+            else:
+                enhanced = url  # Keep original if no metadata found
+            
+            url_to_meta[url] = enhanced
+            print(f"✅  [{i}/{len(filtered_urls)}] Generated metadata for {url}")
+        except Exception as e:
+            url_to_meta[url] = url  # Keep original on error
+            print(f"❌  [{i}/{len(filtered_urls)}] Failed to get metadata for {url}: {e}")
+    
+    return url_to_meta
+
+
 def expand_short_urls(text: str, url_mappings: Dict[str, str]) -> str:
     """Expand shortened URLs in text using the URL mappings with optimized regex replacement."""
     import re
@@ -1328,9 +1077,26 @@ def replace_urls_with_meta(text: str, url_to_meta: Dict[str, str]) -> str:
 
 
 def save_url_metadata_csv(url_to_meta: Dict[str, str], out_path: Path):
-    """Save URL to metadata mappings as CSV."""
+    """Save URL to metadata mappings as CSV, merging with existing data."""
+    # Read existing URL metadata if file exists
+    existing_metadata = {}
+    if out_path.exists():
+        try:
+            with out_path.open("r", newline="", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    existing_metadata[row["url"]] = row["enhanced"]
+            print(f"📖  Loaded {len(existing_metadata)} existing URL metadata from {out_path.name}")
+        except Exception as e:
+            print(f"⚠️  Failed to read existing URL metadata: {e}")
+    
+    # Merge new metadata with existing (new ones take priority)
+    all_metadata = existing_metadata.copy()
+    all_metadata.update(url_to_meta)
+    
+    # Convert to rows format
     metadata_rows = []
-    for original_url, enhanced in url_to_meta.items():
+    for original_url, enhanced in all_metadata.items():
         # Extract title and description from enhanced format
         if " (" in enhanced and enhanced.endswith(")"):
             meta_part = enhanced[enhanced.rfind(" (") + 2:-1]
@@ -1354,6 +1120,10 @@ def save_url_metadata_csv(url_to_meta: Dict[str, str], out_path: Path):
         writer = csv.DictWriter(f, ["url", "title", "description", "enhanced"])
         writer.writeheader()
         writer.writerows(metadata_rows)
+    
+    new_count = len(url_to_meta)
+    total_count = len(all_metadata)
+    print(f"✅  Saved {total_count} total URL metadata ({new_count} new, {total_count - new_count} existing)")
 
 
 # --------------------------------------------------------------------------- #
@@ -1491,23 +1261,87 @@ def generate_image_captions_from_texts(texts: List[str], media_mappings: Dict[st
     return url_to_caption
 
 
+def generate_image_captions_from_urls(urls_to_process: List[str], cache_dir: Path = None, max_images: int = 500) -> Dict[str, str]:
+    """Generate captions for a list of image URLs."""
+    url_to_caption = {}
+    if not urls_to_process:
+        return url_to_caption
+
+    # Limit the number of images to process
+    if len(urls_to_process) > max_images:
+        urls_to_process = urls_to_process[:max_images]
+        print(f"⚠️  Found {len(urls_to_process)} images, limiting to first {max_images} for processing")
+        
+    print(f"🖼️  Processing {len(urls_to_process)} unique images for captioning")
+    if cache_dir:
+        print(f"💾  Using image caption cache: {cache_dir}")
+    
+    # Generate captions for each unique URL
+    for i, url in enumerate(urls_to_process, 1):
+        try:
+            # For cleaned data, URLs are already expanded, no need for media_mappings
+            caption = describe_image(url, None, cache_dir)
+            url_to_caption[url] = caption
+            print(f"✅  [{i}/{len(urls_to_process)}] Generated caption: {url[:50]}...")
+        except Exception as e:
+            caption = f"ERROR: {e}"
+            url_to_caption[url] = caption
+            print(f"❌  [{i}/{len(urls_to_process)}] Failed to caption {url[:50]}...: {e}")
+    
+    return url_to_caption
+
+
 def replace_images_with_captions(text: str, url_to_caption: Dict[str, str]) -> str:
-    """Replace image URLs in text with [image](caption) format."""
-    for url, caption in url_to_caption.items():
-        if url in text:
-            # Escape ) and newlines to prevent breaking Markdown
-            safe_caption = caption.replace(")", r"\)").replace("\n", " ")
-            text = text.replace(url, f"[image]({safe_caption})")
-    return text
+    """Replace image URLs in text with [image](caption) format.
+    If a caption is unavailable or failed to generate, a placeholder
+    '[image](Image not captioned)' will be inserted instead.
+    """
+    import re
+
+    def _repl(match: re.Match) -> str:
+        url = match.group(0)
+        caption = None
+        if url_to_caption:
+            caption = url_to_caption.get(url)
+            if caption and caption.startswith("ERROR"):
+                caption = None  # Treat error messages as missing captions
+        if not caption:
+            caption = "Image not captioned"
+        safe_caption = caption.replace(")", r"\)").replace("\n", " ")
+        return f"[image]({safe_caption})"
+
+    # Apply replacement to every matched image URL (pbs.twimg.com, etc.)
+    return IMG_RE.sub(_repl, text)
 
 
 def save_captions_csv(url_to_caption: Dict[str, str], out_path: Path):
-    """Save image URL to caption mappings as CSV."""
-    captions = [{"url": url, "caption": caption} for url, caption in url_to_caption.items()]
+    """Save image URL to caption mappings as CSV, merging with existing data."""
+    # Read existing captions if file exists
+    existing_captions = {}
+    if out_path.exists():
+        try:
+            with out_path.open("r", newline="", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    existing_captions[row["url"]] = row["caption"]
+            print(f"📖  Loaded {len(existing_captions)} existing captions from {out_path.name}")
+        except Exception as e:
+            print(f"⚠️  Failed to read existing captions: {e}")
+    
+    # Merge new captions with existing (new ones take priority)
+    all_captions = existing_captions.copy()
+    all_captions.update(url_to_caption)
+    
+    # Write merged captions
+    captions = [{"url": url, "caption": caption} for url, caption in all_captions.items()]
     with out_path.open("w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, ["url", "caption"])
         writer.writeheader()
         writer.writerows(captions)
+    
+    new_count = len(url_to_caption)
+    total_count = len(all_captions)
+    print(f"✅  Saved {total_count} total captions ({new_count} new, {total_count - new_count} existing)")
 
 
 def gen_captions(bookmarks_path: pathlib.Path, out_path: pathlib.Path):
@@ -1616,26 +1450,16 @@ def get_folder_path() -> tuple[Path, argparse.Namespace]:
             sys.exit(1)
 
 
-def determine_self_ids(args: argparse.Namespace, tweets_file: Path = None, likes_file: Path = None, bookmarks_file: Path = None) -> set:
-    """Determine user's own Twitter IDs from various sources.
-    
-    Args:
-        args: Parsed command line arguments
-        tweets_file: Path to tweets file (optional)
-        likes_file: Path to likes file (optional) 
-        bookmarks_file: Path to bookmarks file (optional)
-    
-    Returns:
-        Set of user IDs belonging to the data owner
-    """
+def determine_self_ids(args: argparse.Namespace, tweets_file: Path = None, **kwargs) -> set:
+    """Determine user's own Twitter IDs from the new cleaned format."""
     self_ids = set()
-    
-    # 1. Check command line --self-id argument
+
+    # 1. Check command line --self-id argument (highest priority)
     if args.self_id:
         self_ids.add(str(args.self_id))
         print(f"🆔  Using self ID from command line: {args.self_id}")
         return self_ids
-    
+
     # 2. Check command line --self-handle argument
     self_handle = args.self_handle
     
@@ -1644,45 +1468,41 @@ def determine_self_ids(args: argparse.Namespace, tweets_file: Path = None, likes
         self_handle = os.environ.get('MY_TWITTER_HANDLE')
         if self_handle:
             print(f"🆔  Using self handle from environment variable: {self_handle}")
-    
-    # 4. Try to extract self IDs from tweets file first (original behavior)
+
+    # 4. Extract self ID from the cleaned tweets file
     if tweets_file and tweets_file.exists():
-        print("🔍  Detecting self IDs from tweets file...")
+        print(f"🔍  Detecting self ID from {tweets_file.name}...")
         try:
-            lines = tweets_file.read_text(encoding="utf-8").splitlines()
-            for line in lines:
-                if not line.strip():
-                    continue
-                try:
-                    obj = json.loads(line)
-                    raw_data = obj.get("raw", {})
-                    user_res = raw_data.get("core", {}).get("user_results", {}).get("result", {})
-                    uid = user_res.get("rest_id") or user_res.get("id")
-                    if uid:
-                        self_ids.add(str(uid))
-                except Exception:
-                    continue
+            with tweets_file.open('r', encoding='utf-8') as infile:
+                for line in infile:
+                    if not line.strip():
+                        continue
+                    try:
+                        # Read the author_id from the new clean format
+                        obj = json.loads(line)
+                        uid = obj.get("author_id")
+                        if uid:
+                            self_ids.add(str(uid))
+                    except Exception:
+                        continue
             if self_ids:
-                print(f"✅  Found {len(self_ids)} self ID(s) from tweets file")
+                print(f"✅  Found {len(self_ids)} self ID(s) from tweets file: {self_ids}")
                 if len(self_ids) > 1:
                     print(f"⚠️  Multiple candidate self IDs detected: {sorted(self_ids)}. "
                           "Use --self-id to disambiguate.")
                 return self_ids
         except Exception as e:
             print(f"⚠️  Failed to read tweets file for self ID detection: {e}")
-    
-    # 5. If we have a self_handle but no tweets file, warn that we can't reliably determine ID
+
+    # 5. Fallback warnings
     if self_handle and not self_ids:
         print(f"⚠️  Handle '{self_handle}' provided but no tweets file available for ID lookup.")
-        print("💡  Likes and bookmarks contain other people's tweets, so cannot reliably determine your ID from them.")
-        print("💡  Use --self-id to provide your Twitter user ID directly, or include a tweets_*.jsonl file.")
+        print("💡  Use --self-id to provide your Twitter user ID directly, or include a cleaned_tweets_*.jsonl file.")
     
     if not self_ids:
         print("⚠️  Could not determine self ID. Use --self-handle or --self-id for accurate self-identification.")
         print("💡  Your tweets will not be labeled as '@me' in output files.")
-        if not tweets_file:
-            print("💡  Tip: Self-identification works best when you have a tweets_*.jsonl file or provide --self-handle/--self-id")
-    
+
     return self_ids
 
 
@@ -1699,7 +1519,7 @@ def main() -> None:
     tweets_file, likes_file, bookmarks_file, replies_file, parents_file = find_files_in_folder(folder)
     
     # Determine self IDs from various sources
-    self_ids = determine_self_ids(args, tweets_file, likes_file, bookmarks_file)
+    self_ids = determine_self_ids(args, tweets_file)
     
     # Check what files we found
     found_files = []
@@ -1708,22 +1528,22 @@ def main() -> None:
     if tweets_file:
         found_files.append(f"✅  Found tweets file: {tweets_file.name}")
     else:
-        missing_files.append("⚠️  No tweets_*.jsonl file found")
+        missing_files.append("⚠️  No cleaned_tweets_*.jsonl file found")
     
     if likes_file:
         found_files.append(f"✅  Found likes file: {likes_file.name}")
     else:
-        missing_files.append("⚠️  No likes_*.jsonl file found")
+        missing_files.append("⚠️  No cleaned_likes_*.jsonl file found")
     
     if bookmarks_file:
         found_files.append(f"✅  Found bookmarks file: {bookmarks_file.name}")
     else:
-        missing_files.append("⚠️  No bookmarks_*.jsonl file found")
+        missing_files.append("⚠️  No cleaned_bookmarks_*.jsonl file found")
     
     if replies_file:
         found_files.append(f"✅  Found replies file: {replies_file.name}")
     else:
-        missing_files.append("⚠️  No replies_*.jsonl file found")
+        missing_files.append("⚠️  No cleaned_replies_*.jsonl file found")
     
     if parents_file:
         found_files.append(f"✅  Found parents file: {parents_file.name}")
@@ -1745,7 +1565,7 @@ def main() -> None:
     
     # Check if we have at least one data file
     if not tweets_file and not replies_file and not likes_file and not bookmarks_file:
-        error_msg = "Cannot proceed without at least one of: tweets_*.jsonl, replies_*.jsonl, likes_*.jsonl, or bookmarks_*.jsonl files."
+        error_msg = "Cannot proceed without at least one cleaned file. Run hydrate_parents_api.py first to generate cleaned_*.jsonl files."
         print(f"❌  {error_msg}")
         safe_messagebox("error", "Missing Files", error_msg)
         return
@@ -1857,83 +1677,41 @@ def main() -> None:
             else:
                 print(f"🔗  Found {tweets_with_replies} reply tweets with parent context available")
         
-        # Collect all texts for URL analysis
-        all_texts = []
-        for text in all_text_lookups.values():
-            expanded_text = expand_short_urls(text, all_url_mappings)
-            all_texts.append(expanded_text)
-        
-        # Collect texts for image captioning based on enabled file types
-        caption_texts = []
-        caption_media_mappings = {}
-        
-        # Process each file type based on caption settings
-        if tweets_file and ENABLE_CAPTIONS_TWEETS:
-            for tweet_id, text in tweets_lookup.items():
-                expanded_text = expand_short_urls(text, all_url_mappings)
-                caption_texts.append(expanded_text)
-            caption_media_mappings.update(tweets_media)
-            print("📸  Image captions enabled for tweets")
-        
-        if likes_file and ENABLE_CAPTIONS_LIKES:
-            for tweet_id, text in likes_lookup.items():
-                if tweet_id not in tweets_lookup:  # Avoid duplicates
-                    expanded_text = expand_short_urls(text, all_url_mappings)
-                    caption_texts.append(expanded_text)
-            caption_media_mappings.update(likes_media)
-            print("📸  Image captions enabled for likes")
-        
-        if bookmarks_file and ENABLE_CAPTIONS_BOOKMARKS:
-            for tweet_id, text in bookmarks_lookup.items():
-                if tweet_id not in tweets_lookup and tweet_id not in likes_lookup:  # Avoid duplicates
-                    expanded_text = expand_short_urls(text, all_url_mappings)
-                    caption_texts.append(expanded_text)
-            caption_media_mappings.update(bookmarks_media)
-            print("📸  Image captions enabled for bookmarks")
-        
-        if replies_file and ENABLE_CAPTIONS_REPLIES:
-            for tweet_id, text in replies_lookup.items():
-                expanded_text = expand_short_urls(text, all_url_mappings)
-                caption_texts.append(expanded_text)
-            caption_media_mappings.update(replies_media)
-            print("📸  Image captions enabled for replies")
-        
-        if parents_file and ENABLE_CAPTIONS_REPLIES:
-            for tweet_id, text in parent_lookup.items():
-                if tweet_id not in all_text_lookups:  # Only add if not already included from other sources
-                    expanded_text = expand_short_urls(text, all_url_mappings)
-                    caption_texts.append(expanded_text)
-            print("📸  Image captions enabled for reply context")
-        
+        # --- NEW URL & MEDIA HANDLING ---
+        print("\n🔄  Collecting all URLs and Media for processing...")
+        all_external_urls = set()
+        all_media_urls = set()
+        for record in all_records:
+            all_external_urls.update(record.get('urls', []))
+            all_media_urls.update(record.get('media_urls', []))
+
         # Generate image captions for enabled file types only
         url_to_caption = {}
-        try:
-            if caption_texts:
-                print(f"🔄  Generating image captions for {len(caption_texts)} texts...")
+        if any([ENABLE_CAPTIONS_TWEETS, ENABLE_CAPTIONS_LIKES, ENABLE_CAPTIONS_BOOKMARKS, ENABLE_CAPTIONS_REPLIES]):
+            try:
+                print(f"🔄  Generating image captions for {len(all_media_urls)} media items...")
                 image_cache_dir = folder / "image_cache"
-                url_to_caption = generate_image_captions_from_texts(caption_texts, caption_media_mappings, image_cache_dir)
+                # This function needs a small change to accept a list of URLs directly
+                url_to_caption = generate_image_captions_from_urls(list(all_media_urls), image_cache_dir, 1000)
                 if url_to_caption:
-                    # Save the image URL to caption mappings as CSV
                     save_captions_csv(url_to_caption, folder / "image_captions.csv")
                     print("✅  Generated image captions and exported image_captions.csv")
                 else:
-                    print("ℹ️  No images found in the enabled file types")
-            else:
-                print("ℹ️  Image captioning disabled for all file types")
-        except Exception as e:
-            print(f"⚠️  Failed generating image captions: {e}")
-        
+                    print("ℹ️  No images found in the records")
+            except Exception as e:
+                print(f"⚠️  Failed generating image captions: {e}")
+
         # Generate URL metadata for all texts
         url_to_meta = {}
         try:
-            print("🔄  Generating URL metadata...")
-            url_to_meta = generate_url_metadata_from_texts(all_texts)
+            print(f"🔄  Generating URL metadata for {len(all_external_urls)} URLs...")
+            # This function also needs to be adapted to take a list of URLs
+            url_to_meta = generate_url_metadata_from_urls(list(all_external_urls), 3500)
             if url_to_meta:
-                # Save the URL to metadata mappings as CSV
                 save_url_metadata_csv(url_to_meta, folder / "url_metadata.csv")
                 print("✅  Generated URL metadata and exported url_metadata.csv")
             else:
-                print("ℹ️  No external URLs found in the texts")
+                print("ℹ️  No external URLs found in the records")
         except Exception as e:
             print(f"⚠️  Failed generating URL metadata: {e}")
         
