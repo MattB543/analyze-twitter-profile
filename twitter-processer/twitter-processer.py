@@ -82,6 +82,7 @@ import socket
 import ipaddress
 import os
 import html
+from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 from tkinter import filedialog, messagebox
@@ -273,6 +274,34 @@ def parse_twitter_jsonl(file_path: Path, file_type: str, self_ids: set = None) -
     return records, text_lookup, {}, {}, meta_by_id
 
 
+def extract_author_username(tweet_data, author_id=None):
+    """Extract author username from various Twitter API response formats."""
+    # Try all possible paths in order of likelihood
+    paths = [
+        # API v2 includes section - match by author_id if available
+        lambda d, aid: next((user.get('username') for user in d.get('includes', {}).get('users', []) 
+                            if aid and user.get('id') == aid), None),
+        # GraphQL-style core structure
+        lambda d, aid: d.get('core', {}).get('user_results', {}).get('result', {}).get('core', {}).get('screen_name'),
+        lambda d, aid: d.get('core', {}).get('user_results', {}).get('result', {}).get('legacy', {}).get('screen_name'),
+        # Legacy top-level user object
+        lambda d, aid: d.get('user', {}).get('screen_name'),
+        # User object inside legacy
+        lambda d, aid: d.get('legacy', {}).get('user', {}).get('screen_name'),
+        # TwitterAPI.io format
+        lambda d, aid: d.get('author', {}).get('userName'),
+    ]
+    
+    for path in paths:
+        try:
+            username = path(tweet_data, author_id)
+            if username:
+                return username
+        except (KeyError, IndexError, TypeError, AttributeError):
+            continue
+    return ""
+
+
 def load_parents_json(parents_file: Path) -> tuple[Dict[str, str], Dict[str, str], Dict[str, Dict[str, Any]]]:
     """Load parent tweets from parents.json and convert to lookup formats.
     
@@ -331,50 +360,9 @@ def load_parents_json(parents_file: Path) -> tuple[Dict[str, str], Dict[str, str
                     if legacy_quoted_id:
                         quoted = str(legacy_quoted_id)
             
-            # Extract author information with a more robust, multi-step process
-            author_username = ""
-            author_id = None
-
-            # --- Step 1: Find the Author ID from multiple possible locations ---
-            author_id = tweet_data.get('author_id')
-            if not author_id:
-                author_id = tweet_data.get('legacy', {}).get('user_id_str')
-
-            # --- Step 2: Use the Author ID to find the screen name ---
-            if author_id:
-                # Method A: Look in the API v2 `includes` object (most reliable)
-                includes = tweet_data.get('includes', {})
-                users = includes.get('users', [])
-                for user in users:
-                    if user.get('id') == author_id:
-                        author_username = user.get('username', '')
-                        break
-
-            # --- Step 3: If screen name is still not found, try other fallbacks ---
-            if not author_username:
-                # Method B: Check the GraphQL-style `core` structure
-                user_result = tweet_data.get("core", {}).get("user_results", {}).get("result", {})
-                if user_result:
-                    author_username = user_result.get("core", {}).get("screen_name") or \
-                                      user_result.get("legacy", {}).get("screen_name")
-
-            if not author_username:
-                # Method C: Check for a legacy top-level `user` object
-                user_object = tweet_data.get("user", {})
-                if user_object:
-                    author_username = user_object.get("screen_name")
-
-            if not author_username:
-                # Method D: Check for a user object inside the `legacy` object
-                legacy_user_object = tweet_data.get("legacy", {}).get("user", {})
-                if legacy_user_object:
-                    author_username = legacy_user_object.get("screen_name")
-
-            if not author_username:
-                # Method E: Check for TwitterAPI.io format - author.userName
-                author_object = tweet_data.get("author", {})
-                if author_object:
-                    author_username = author_object.get("userName")
+            # Extract author information using the simplified helper function
+            author_id = tweet_data.get('author_id') or tweet_data.get('legacy', {}).get('user_id_str')
+            author_username = extract_author_username(tweet_data, author_id)
             
             # Also get reply_to_user from legacy if available
             reply_to_user = ""
@@ -1506,6 +1494,31 @@ def determine_self_ids(args: argparse.Namespace, tweets_file: Path = None, **kwa
     return self_ids
 
 
+def deduplicate_records(all_records):
+    """Deduplicate records with priority: tweets/replies > bookmarks > likes"""
+    priority_map = {'tweets': 0, 'replies': 0, 'bookmarks': 1, 'likes': 2}
+    records_by_id = defaultdict(list)
+    
+    # Group by tweet_id
+    for r in all_records:
+        if tweet_id := r.get("id"):
+            records_by_id[tweet_id].append(r)
+    
+    # Keep highest priority record for each ID
+    deduplicated = []
+    for tweet_id, records in records_by_id.items():
+        # Sort by priority (lower number = higher priority)
+        records.sort(key=lambda r: priority_map.get(r["source"], 999))
+        deduplicated.append(records[0])
+    
+    # Group by type for output
+    return {
+        'tweets_replies': [r for r in deduplicated if r["source"] in ("tweets", "replies")],
+        'bookmarks': [r for r in deduplicated if r["source"] == "bookmarks"],
+        'likes': [r for r in deduplicated if r["source"] == "likes"]
+    }
+
+
 
 
 
@@ -1717,31 +1730,10 @@ def main() -> None:
         
         # Export text files using unified approach with proper deduplication
         # Deduplicate records by tweet_id with priority: tweets/replies > bookmarks > likes
-        seen_tweet_ids = set()
-        combined_tweets_and_replies_records = []
-        likes_records = []
-        bookmarks_records = []
-        
-        # First pass: tweets and replies (highest priority, combined)
-        for r in all_records:
-            tweet_id = r.get("id")
-            if r["source"] in ("tweets", "replies") and tweet_id and tweet_id not in seen_tweet_ids:
-                combined_tweets_and_replies_records.append(r)
-                seen_tweet_ids.add(tweet_id)
-        
-        # Second pass: bookmarks (medium priority)
-        for r in all_records:
-            tweet_id = r.get("id")
-            if r["source"] == "bookmarks" and tweet_id and tweet_id not in seen_tweet_ids:
-                bookmarks_records.append(r)
-                seen_tweet_ids.add(tweet_id)
-        
-        # Third pass: likes (lowest priority)
-        for r in all_records:
-            tweet_id = r.get("id")
-            if r["source"] == "likes" and tweet_id and tweet_id not in seen_tweet_ids:
-                likes_records.append(r)
-                seen_tweet_ids.add(tweet_id)
+        deduplicated_groups = deduplicate_records(all_records)
+        combined_tweets_and_replies_records = deduplicated_groups['tweets_replies']
+        bookmarks_records = deduplicated_groups['bookmarks']
+        likes_records = deduplicated_groups['likes']
         
         # Sort the combined tweets and replies by date (newest first)
         # This is crucial to maintain chronological order in the final output file.

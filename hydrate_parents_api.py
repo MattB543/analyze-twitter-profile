@@ -61,6 +61,9 @@ def clean_tweet(raw_tweet):
     Takes a raw tweet object (as a dictionary) and returns a cleaned,
     simplified dictionary based on the specified requirements.
     """
+    if not raw_tweet or not isinstance(raw_tweet, dict):
+        return None  # Skip invalid tweets
+    
     # Use .get() to safely access nested keys that might not exist
     legacy = raw_tweet.get('raw', {}).get('legacy', {})
     core_user_results = raw_tweet.get('raw', {}).get('core', {}).get('user_results', {}).get('result', {})
@@ -242,8 +245,12 @@ def find_and_clean_files(folder: pathlib.Path) -> List[pathlib.Path]:
                     try:
                         raw_tweet_data = json.loads(line)
                         cleaned_tweet = clean_tweet(raw_tweet_data)
-                        outfile.write(json.dumps(cleaned_tweet) + '\n')
-                        cleaned_count += 1
+                        if cleaned_tweet is not None:
+                            outfile.write(json.dumps(cleaned_tweet) + '\n')
+                            cleaned_count += 1
+                        else:
+                            print(f"⚠️ Skipping invalid tweet data on line {line_no} in {input_file.name}")
+                            error_count += 1
                     except json.JSONDecodeError:
                         print(f"⚠️ Skipping invalid JSON line {line_no} in {input_file.name}")
                         error_count += 1
